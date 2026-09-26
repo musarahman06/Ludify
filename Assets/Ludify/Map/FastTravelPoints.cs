@@ -62,7 +62,7 @@ namespace Ludify.Map
             GameObject parent = GameObject.Find(parentName);
             Renderer[] renderers = parent != null
                 ? parent.GetComponentsInChildren<MeshRenderer>()
-                : Object.FindObjectsByType<MeshRenderer>(FindObjectsSortMode.None);
+                : Object.FindObjectsByType<MeshRenderer>();
 
             Renderer tallest = null;
             foreach (Renderer r in renderers)

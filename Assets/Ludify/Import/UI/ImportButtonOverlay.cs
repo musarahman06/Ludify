@@ -17,6 +17,25 @@ namespace Ludify.Import
         /// <summary>Raised on the main thread when a lesson has been imported (or loaded from cache).</summary>
         public static event Action<QuestionBank> LessonImported;
 
+        /// <summary>Raised on the main thread when an import fails (message is user-facing).</summary>
+        public static event Action<string> ImportFailed;
+
+        /// <summary>True while a file is being imported.</summary>
+        public static bool IsBusy => _instance != null && _instance._busy;
+
+        /// <summary>Latest progress/result message, or null if none is showing.</summary>
+        public static string StatusMessage =>
+            _instance != null && Time.unscaledTime < _instance._messageUntil ? _instance._message : null;
+
+        /// <summary>Opens the file picker and imports the chosen file, same as clicking the button.</summary>
+        public static void RequestImport()
+        {
+            if (_instance == null || _instance._busy || LessonFilePicker.IsOpen) return;
+            LessonFilePicker.Show(_instance.Import);
+        }
+
+        static ImportButtonOverlay _instance;
+
         const float DesignHeight = 800f;
         const float MessageSeconds = 8f;
 
@@ -37,7 +56,11 @@ namespace Ludify.Import
 
         bool _testPanelPresent;
 
-        void Awake() => _cts = new CancellationTokenSource();
+        void Awake()
+        {
+            _cts = new CancellationTokenSource();
+            _instance = this;
+        }
 
         void Update() => _testPanelPresent = FindAnyObjectByType<ImportTestPanel>() != null;
 
@@ -56,11 +79,16 @@ namespace Ludify.Import
                 LessonImported?.Invoke(bank);
             }
             catch (OperationCanceledException) { }
-            catch (ImportException e) { Show(e.Message, MessageSeconds * 2); }
+            catch (ImportException e)
+            {
+                Show(e.Message, MessageSeconds * 2);
+                ImportFailed?.Invoke(e.Message);
+            }
             catch (Exception e)
             {
                 Show("Import failed: " + e.Message, MessageSeconds * 2);
                 Debug.LogException(e);
+                ImportFailed?.Invoke("Import failed: " + e.Message);
             }
             finally { _busy = false; }
         }

@@ -1,3 +1,4 @@
+using System;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
@@ -12,6 +13,12 @@ public class VehicleInteraction : MonoBehaviour
     public float enterRange = 4f;
     public float maxExitSpeed = 3f;       // m/s
     public float carCameraDistance = 11f;
+
+    /// <summary>Raised when the player gets into / out of a car (the time trial listens).</summary>
+    public static event Action<CarController> CarEntered, CarExited;
+
+    /// <summary>While true, X can't take the player out of the car (e.g. mid-question).</summary>
+    public static bool BlockExit;
 
     CarController[] cars;
     CarController nearestCar;
@@ -32,7 +39,7 @@ public class VehicleInteraction : MonoBehaviour
 
         if (drivenCar != null)
         {
-            if (interact && Mathf.Abs(drivenCar.ForwardSpeed) <= maxExitSpeed) Exit();
+            if (interact && !BlockExit && Mathf.Abs(drivenCar.ForwardSpeed) <= maxExitSpeed) Exit();
             return;
         }
 
@@ -61,6 +68,7 @@ public class VehicleInteraction : MonoBehaviour
         player.SetActive(false);
         playerCameraDistance = orbitCamera.distance;
         orbitCamera.SetTarget(car.transform, carCameraDistance);
+        CarEntered?.Invoke(car);
     }
 
     void Exit()
@@ -77,6 +85,7 @@ public class VehicleInteraction : MonoBehaviour
         player.transform.SetPositionAndRotation(spot, Quaternion.LookRotation(car.transform.forward, Vector3.up));
         player.SetActive(true);
         orbitCamera.SetTarget(player.transform, playerCameraDistance);
+        CarExited?.Invoke(car);
     }
 
     void OnGUI()
@@ -86,7 +95,7 @@ public class VehicleInteraction : MonoBehaviour
         {
             Speedometer.Draw(drivenCar);
             // Only mention getting out once the car is slow enough to do it.
-            if (Mathf.Abs(drivenCar.ForwardSpeed) <= maxExitSpeed) hint = "Press X to get out";
+            if (!BlockExit && Mathf.Abs(drivenCar.ForwardSpeed) <= maxExitSpeed) hint = "Press X to get out";
         }
         else if (nearestCar != null)
         {

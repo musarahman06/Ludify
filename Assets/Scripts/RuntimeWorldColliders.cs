@@ -110,6 +110,11 @@ public static class RuntimeWorldColliders
             var vi = go.AddComponent<VehicleInteraction>();
             vi.player = player.gameObject;
             vi.orbitCamera = cam;
+
+            // Getting into a car on the circuit starts the Knowledge Time Trial.
+            var tt = new GameObject("_TimeTrial");
+            SceneManager.MoveGameObjectToScene(tt, scene);
+            tt.AddComponent<TimeTrialManager>();
         }
         return count;
     }

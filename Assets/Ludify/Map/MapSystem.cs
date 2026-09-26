@@ -96,7 +96,7 @@ namespace Ludify.Map
 
         public void OpenFullMap()
         {
-            if (IsFullMapOpen || _travelling) return;
+            if (IsFullMapOpen || _travelling || RaceInProgress()) return;
             StartCoroutine(Snapshot.Capture()); // refresh so the map shows the world as it is right now
 
             _timeScaleBeforeMap = Time.timeScale;
@@ -120,6 +120,14 @@ namespace Ludify.Map
                 if (b != null) b.enabled = true;
             _pausedBehaviours.Clear();
             Time.timeScale = _timeScaleBeforeMap;
+        }
+
+        /// <summary>The full map pauses the game, which would break a time trial's timing and slow motion.</summary>
+        static bool RaceInProgress()
+        {
+            TimeTrialManager trial = FindAnyObjectByType<TimeTrialManager>();
+            return trial != null && trial.CurrentState != TimeTrialManager.State.Idle
+                                 && trial.CurrentState != TimeTrialManager.State.Finished;
         }
 
         void Pause(Behaviour behaviour)

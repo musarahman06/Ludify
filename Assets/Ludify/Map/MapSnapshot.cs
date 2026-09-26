@@ -48,14 +48,14 @@ namespace Ludify.Map
                 Vector3 pos = terrain.transform.position;
                 var bounds = new Bounds(pos + size / 2, size);
                 // Include buildings taller than the terrain's height range.
-                foreach (Renderer r in UnityEngine.Object.FindObjectsByType<MeshRenderer>(FindObjectsSortMode.None))
+                foreach (Renderer r in UnityEngine.Object.FindObjectsByType<MeshRenderer>())
                     if (r.bounds.max.y > bounds.max.y && bounds.Contains(new Vector3(r.bounds.center.x, bounds.center.y, r.bounds.center.z)))
                         bounds.Encapsulate(new Vector3(r.bounds.center.x, r.bounds.max.y, r.bounds.center.z));
                 return bounds;
             }
 
             var all = new Bounds(Vector3.zero, Vector3.one * 100);
-            foreach (Renderer r in UnityEngine.Object.FindObjectsByType<MeshRenderer>(FindObjectsSortMode.None))
+            foreach (Renderer r in UnityEngine.Object.FindObjectsByType<MeshRenderer>())
                 all.Encapsulate(r.bounds);
             return all;
         }
