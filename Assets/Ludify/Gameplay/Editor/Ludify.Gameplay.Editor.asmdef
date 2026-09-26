@@ -1,0 +1,19 @@
+{
+    "name": "Ludify.Gameplay.Editor",
+    "rootNamespace": "Ludify.Gameplay.Editor",
+    "references": [
+        "Ludify.Gameplay",
+        "Unity.InputSystem"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
