@@ -17,6 +17,7 @@ rather than editing their files.
 |---|---|---|
 | Gameplay: scenes, map, player, mechanics | Gameplay teammate | `Assets/Scenes/`, `Assets/Terrain/`, `Assets/Kenney/`, `Assets/Ludify/Gameplay/` |
 | File import → 3D pipeline | BenJPanackal (import team) | `Assets/Ludify/Import/`, `Server/` |
+| Minimap / full map / fast travel | BenJPanackal (built on request; gameplay teammate may take over) | `Assets/Ludify/Map/` |
 
 - Import code uses the `Ludify.Import` namespace and is tested in its own scene
   (`Assets/Ludify/Import/Scenes/ImportTest.unity`). **Do not edit gameplay scenes to test import.**
@@ -37,6 +38,10 @@ Full design: `docs/import-pipeline.md`. Teachers pick files at **runtime** (in t
   `ImportButtonOverlay`; set `ImportButtonOverlay.Enabled = false` to hide). Gameplay can subscribe
   to `ImportButtonOverlay.LessonImported`.
 - Test: menu **Ludify > Import**, or play `Assets/Ludify/Import/Scenes/ImportTest.unity`.
+
+**Built: minimap + question-gated fast travel** (`Assets/Ludify/Map/`, compiles into Assembly-CSharp so it
+can use `PlayerController`/`OrbitCamera`). Runtime-installed, map image is a live top-down render of the scene.
+Fast-travel points live in `FastTravelPoints.Resolve`.
 
 **Planned: images → 3D** (panel → depth relief → AI mesh, loaded with glTFast).
 

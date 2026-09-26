@@ -40,6 +40,7 @@ namespace Ludify.Import
         {
             Directory.CreateDirectory(Folder);
             File.WriteAllText(PathFor(bank.Id), JsonConvert.SerializeObject(bank, Settings));
+            QuestionPool.Invalidate();
         }
 
         /// <summary>All saved banks, newest first.</summary>
@@ -57,6 +58,7 @@ namespace Ludify.Import
         {
             string path = PathFor(id);
             if (File.Exists(path)) File.Delete(path);
+            QuestionPool.Invalidate();
         }
 
         public static string ToJson(QuestionBank bank) => JsonConvert.SerializeObject(bank, Settings);

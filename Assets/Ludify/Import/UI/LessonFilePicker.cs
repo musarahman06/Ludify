@@ -21,8 +21,8 @@ namespace Ludify.Import
                                        false, null, null, "Choose a lecture file", "Import");
         }
 
-        // The file browser is uGUI and needs an EventSystem (this project uses the Input System).
-        static void EnsureEventSystem()
+        /// <summary>uGUI needs an EventSystem for clicks (this project uses the Input System).</summary>
+        public static void EnsureEventSystem()
         {
             if (UnityEngine.Object.FindAnyObjectByType<EventSystem>() != null) return;
             new GameObject("EventSystem", typeof(EventSystem), typeof(InputSystemUIInputModule));

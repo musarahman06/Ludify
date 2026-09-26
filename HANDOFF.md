@@ -5,6 +5,30 @@ Keep each entry short: what changed, what's half-done, what's next, anything tha
 
 ---
 
+## 2026-09-26 (3): BenJPanackal (minimap, full map, question-gated fast travel)
+
+Touches the gameplay area (map/HUD/player position), but **no gameplay files or scenes were edited**.
+Everything installs itself at runtime in any scene with a `PlayerController`. Gameplay teammate, please review.
+
+**Done**
+- `Assets/Ludify/Map/`: circular **minimap** bottom-left (north-up, player arrow, destination icons on the rim).
+  Click it or press **M** for the **full map**; Esc/M/X closes. The game pauses while the full map is open.
+- The map image is a **live top-down render of the current scene** (at start and every time the map opens),
+  so it updates automatically when the world changes. No map image to maintain.
+- **Fast travel points:** Racetrack (= player spawn) and Skyscraper (= tallest building under `DowntownBuildings`).
+  Add more in `FastTravelPoints.Resolve` (e.g. `AddAtObject(points, "Farm", "FarmHouse", Color.yellow)`).
+- Fast travel asks a **practice question** from the imported lectures. Wrong → shows the answer, then another question.
+  If no lecture has been imported, travel is free. Must be on foot ("Get out of the car to fast travel").
+- Reusable for the racing game: `await QuestionPrompt.AskAsync(title, buttonLabel)` → Correct / Cancelled / NoQuestions,
+  and `QuestionPool.Deck` (one shared deck over all imported lectures). See `docs/import-pipeline.md`.
+
+**Notes**
+- The map sets `OrbitCamera.yaw` on arrival and disables `PlayerController`/`OrbitCamera`/`VehicleInteraction`
+  while the full map is open (restored on close).
+- Player settings "Run In Background" is off, so play mode pauses when the Unity window loses focus (unchanged).
+
+---
+
 ## 2026-09-26 (2): BenJPanackal (lecture → practice questions)
 
 **Done**

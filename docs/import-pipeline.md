@@ -45,6 +45,15 @@ bool correct = deck.RecordAnswer(q, chosenIndex);   // e.g. speed up / slow down
 Missed questions come back after a few others. Questions are ≤120 chars, choices ≤40 chars,
 so they fit a racing HUD.
 
+**Asking a question from gameplay** (used by fast travel; reuse it for the racing game):
+```csharp
+QuestionResult r = await QuestionPrompt.AskAsync("Answer to boost!", "Go");
+// Correct: answered right (after any number of wrong tries). Cancelled: player gave up.
+// NoQuestions: no lecture imported yet, so decide the fallback (fast travel treats it as free).
+```
+`QuestionPool.Deck` is one shared `QuestionDeck` over every imported lecture (rebuilt when banks change),
+so different games don't repeat the same questions. `UiKit` has the code-built uGUI helpers.
+
 To import from gameplay code: `await new LessonImporter().ImportAsync(path, progress)` (main thread).
 
 ---
