@@ -5,6 +5,30 @@ Keep each entry short: what changed, what's half-done, what's next, anything tha
 
 ---
 
+## 2026-09-26 (3): musarahman (Knowledge Time Trial)
+
+**Done**
+- Getting into a car (X) starts a **time trial** on the F1 circuit: choose **3 or 5 laps**, then a 3-2-1 countdown; lap counter and times top-left
+  (lap, total, last, best, personal bests, quiz score). Checkpoints at 25/50/75% stop shortcuts; "Wrong way" warning.
+- **One question per lap** at a random point: slow motion (10%), 15 real seconds, answer with 1-4 or click.
+  Right = speed boost; wrong/timeout = short slowdown + 3 s penalty. Questions come from the newest imported lecture.
+- **Questions are never reused**: every asked question is recorded per lecture in
+  `<persistentDataPath>/TimeTrials/used_questions.json`. When a lecture runs out, the race prompts for a new import
+  (or races without questions). Race records are kept per race length.
+- **No lecture imported yet** → getting in shows an import prompt (Import lecture / Race without questions).
+- Best lap + best total saved to `<persistentDataPath>/TimeTrials/records.json` (overall and per lecture).
+- New files: `Assets/Scripts/TimeTrial/` (`TimeTrialManager`, `TimeTrialHud`, `TimeTrialRecords`, `TrackPath`,
+  `Resources/LudifyTrackPath.txt`). Set up automatically next to `_VehicleInteraction`; no scene edits.
+
+**Heads-up: small additive edits to teammates' files**
+- `CarController`: `HoldForStart`, `ApplyBoost`, `ApplyPenalty`, `ClearEffects`, `PlaceAt` (normal driving unchanged).
+- `VehicleInteraction`: static `CarEntered` / `CarExited` events and `BlockExit` (X disabled mid-question).
+- `RuntimeWorldColliders.SetUpCars`: also creates `_TimeTrial`.
+- `ImportButtonOverlay` (import team): `RequestImport()`, `IsBusy`, `StatusMessage`, `ImportFailed` so the race prompt
+  reuses the import flow. The button is hidden during a race and comes back afterwards.
+
+---
+
 ## 2026-09-26 (2): BenJPanackal (lecture → practice questions)
 
 **Done**

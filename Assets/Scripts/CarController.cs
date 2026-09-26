@@ -73,6 +73,42 @@ public class CarController : MonoBehaviour
     public Collider BodyCollider => bodyCollider;
     public float ForwardSpeed => body ? Vector3.Dot(body.linearVelocity, transform.forward) : 0f;
 
+    /// <summary>Time trial: brakes on and driver input ignored (countdown, import prompt, finish screen).</summary>
+    public bool HoldForStart { get; set; }
+    public bool IsBoosted => Time.time < boostUntil;
+    public bool IsPenalized => Time.time < penaltyUntil;
+
+    float boostUntil, boostMultiplier = 1f, penaltyUntil;
+
+    /// <summary>Temporarily multiplies engine power and cuts drag, with an instant kick forward.</summary>
+    public void ApplyBoost(float powerMultiplier, float seconds, float kickSpeed = 6f)
+    {
+        boostMultiplier = powerMultiplier;
+        boostUntil = Time.time + seconds;
+        penaltyUntil = 0f;
+        if (body != null) body.AddForce(transform.forward * kickSpeed, ForceMode.VelocityChange);
+    }
+
+    /// <summary>Temporarily limits throttle and adds drag.</summary>
+    public void ApplyPenalty(float seconds)
+    {
+        penaltyUntil = Time.time + seconds;
+        boostUntil = 0f;
+    }
+
+    public void ClearEffects() { boostUntil = 0f; penaltyUntil = 0f; }
+
+    /// <summary>Moves the car to a pose and stops it (e.g. onto the start line).</summary>
+    public void PlaceAt(Vector3 position, Quaternion rotation)
+    {
+        if (body == null) { transform.SetPositionAndRotation(position, rotation); return; }
+        body.linearVelocity = Vector3.zero;
+        body.angularVelocity = Vector3.zero;
+        body.position = position;
+        body.rotation = rotation;
+        transform.SetPositionAndRotation(position, rotation);
+    }
+
     Rigidbody body;
     BoxCollider bodyCollider;
     WheelCollider frontLeft, frontRight, rearLeft, rearRight;
@@ -217,6 +253,8 @@ public class CarController : MonoBehaviour
             if (kb.dKey.isPressed || kb.rightArrowKey.isPressed) steerInput += 1f;
             handbrake = kb.spaceKey.isPressed;
         }
+        if (HoldForStart) { throttle = 0f; brake = 0f; steerInput = 0f; handbrake = true; }
+        if (IsPenalized) throttle = Mathf.Min(throttle, 0.3f);
 
         float speed = ForwardSpeed;
         float absSpeed = Mathf.Abs(speed);
@@ -232,7 +270,11 @@ public class CarController : MonoBehaviour
         if (throttle > 0f)
         {
             if (speed < -0.5f) brakeForce = maxBrakeForce * throttle;
-            else driveForce = Mathf.Min(maxDriveForce, enginePower / Mathf.Max(absSpeed, 1f)) * throttle;
+            else
+            {
+                float boost = IsBoosted ? boostMultiplier : 1f;
+                driveForce = Mathf.Min(maxDriveForce * boost, enginePower * boost / Mathf.Max(absSpeed, 1f)) * throttle;
+            }
         }
         if (brake > 0f)
         {
@@ -246,7 +288,7 @@ public class CarController : MonoBehaviour
 
         float frontBrake = brakeForce * frontBrakeBias * 0.5f * frontLeft.radius;
         float rearBrake = brakeForce * (1f - frontBrakeBias) * 0.5f * rearLeft.radius;
-        if (!IsDriven && throttle == 0f && brake == 0f) frontBrake = Mathf.Max(frontBrake, handbrakeTorque);
+        if ((!IsDriven || HoldForStart) && throttle == 0f && brake == 0f) frontBrake = Mathf.Max(frontBrake, handbrakeTorque);
         frontLeft.brakeTorque = frontRight.brakeTorque = frontBrake;
         rearLeft.brakeTorque = rearRight.brakeTorque = handbrake ? Mathf.Max(rearBrake, handbrakeTorque) : rearBrake;
 
@@ -254,7 +296,8 @@ public class CarController : MonoBehaviour
 
         // Aerodynamics: drag against motion and downforce for high-speed grip, both growing with speed squared.
         Vector3 v = body.linearVelocity;
-        body.AddForce(-v * v.magnitude * dragCoefficient);
+        float drag = dragCoefficient * (IsBoosted ? 0.7f : 1f) * (IsPenalized ? 2.5f : 1f);
+        body.AddForce(-v * v.magnitude * drag);
         if (frontLeft.isGrounded || rearLeft.isGrounded)
             body.AddForce(-transform.up * downforceCoefficient * speed * speed);
 
