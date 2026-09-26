@@ -2,6 +2,53 @@
 
 Owner: import team (BenJPanackal). Namespace: `Ludify.Import`. Folders: `Assets/Ludify/Import/`, `Server/`.
 
+## Lecture text → practice questions (built)
+
+```
+ PDF / PPTX / DOCX / TXT / MD
+        │ LessonReaderFactory       (PPTX: slides in order + speaker notes; DOCX: paragraphs + tables;
+        ▼                             PDF: raw bytes, Gemini reads it natively incl. scans)
+ LessonContent ── sha256(file + settings) ──► cache hit? → QuestionBankStore (0 API calls)
+        │
+        ▼ Gemini call 1: LessonResearcher   (Google Search grounding if the key allows it, else model knowledge)
+        ▼ Gemini call 2: QuestionGenerator  (responseSchema JSON → N multiple-choice questions)
+        ▼ QuestionValidator                 (exactly 4 choices, no dupes/"all of the above", shuffle answers)
+ QuestionBank ──► persistentDataPath/QuestionBanks/<id>.json
+```
+
+- **LLM:** Google Gemini API free tier. Default model is `gemini-flash-lite-latest` (largest free
+  daily quota; verified working 2026-09-26). Override with `geminiModel` in `ludify_secrets.json` or the `GEMINI_MODEL` env var.
+  **Ludify > Import > Check Gemini Setup** validates the key and lists models.
+- **Web search:** Google Search grounding returns 429 (quota 0) on free keys. The researcher then
+  falls back to the model's own knowledge for the session. Enabling billing on the key turns web search on
+  automatically, and source URLs appear in `QuestionBank.Sources`.
+- **In-game button:** `ImportButtonOverlay` adds "Import lecture" at the top of every scene and raises
+  `ImportButtonOverlay.LessonImported(QuestionBank)`.
+- **Cost:** 2 requests per new file. Re-importing the same file is free (cache).
+  Changing prompts: bump `PipelineVersion` in `LessonImporter` to invalidate old banks.
+- **Keys:** `GEMINI_API_KEY` env var → `<project>/ludify_secrets.json` → `persistentDataPath/ludify_secrets.json`.
+- **Free-tier privacy:** Google may use free-tier prompts to improve its products. Don't import
+  files containing private student data.
+
+### Questions API (for gameplay)
+
+```csharp
+using Ludify.Import;
+
+List<QuestionBank> banks = QuestionBankStore.LoadAll();   // newest first
+var deck = new QuestionDeck(banks[0]);
+McQuestion q = deck.Next();            // or deck.Next(difficulty: 1)
+// show q.Prompt and q.Choices[0..3]
+bool correct = deck.RecordAnswer(q, chosenIndex);   // e.g. speed up / slow down
+// q.Explanation: one sentence to show after answering
+```
+Missed questions come back after a few others. Questions are ≤120 chars, choices ≤40 chars,
+so they fit a racing HUD.
+
+To import from gameplay code: `await new LessonImporter().ImportAsync(path, progress)` (main thread).
+
+---
+
 ## Key constraint: this is a *runtime* import
 
 Teachers use the **built game**, not the Unity Editor. Unity's normal import system

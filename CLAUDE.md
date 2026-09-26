@@ -25,16 +25,27 @@ rather than editing their files.
 
 ## Import pipeline (summary)
 
-Full design: `docs/import-pipeline.md`. In short:
+Full design: `docs/import-pipeline.md`. Teachers pick files at **runtime** (in the built game, not the Editor).
 
-1. Teacher picks a file at **runtime** (in the built game, not the Editor).
-2. A backend service in `Server/` normalizes it to images (PDF/PPTX → one PNG per page).
-3. Each image becomes 3D through one of three tiers: textured panel → depth relief → AI mesh (GLB).
-4. Unity loads the result at runtime (glTFast for GLB) and caches it by file hash.
+**Built: lecture text → practice questions** (`Assets/Ludify/Import/`)
+- Reads PDF (sent to Gemini as-is), PPTX (slides + speaker notes), DOCX, TXT/MD.
+- Gemini (free tier) call 1 researches the topic (Google Search only works on billing-enabled keys;
+  free keys automatically fall back to the model's own knowledge); call 2 writes multiple-choice
+  questions as JSON. Results are cached by file hash in `persistentDataPath/QuestionBanks/`.
+- Gameplay uses `QuestionBankStore` + `QuestionDeck` only (see docs, "Questions API").
+- In-game: an **Import lecture** button at the top of the screen (every scene, installed by
+  `ImportButtonOverlay`; set `ImportButtonOverlay.Enabled = false` to hide). Gameplay can subscribe
+  to `ImportButtonOverlay.LessonImported`.
+- Test: menu **Ludify > Import**, or play `Assets/Ludify/Import/Scenes/ImportTest.unity`.
+
+**Planned: images → 3D** (panel → depth relief → AI mesh, loaded with glTFast).
 
 Editor-only APIs (`AssetDatabase`, `ScriptedImporter`, Unity AI generators) are fine for dev
 tooling but must never be on the runtime path. Teachers use the built game.
-Never put API keys in the Unity project. They belong on the backend.
+
+**API keys never go in the repo.** Each developer uses their own free Gemini key via the
+`GEMINI_API_KEY` env var or a gitignored `ludify_secrets.json` in the project root
+(copy `ludify_secrets.example.json`). Don't read, print, or log key values.
 
 ## Collaboration rules
 

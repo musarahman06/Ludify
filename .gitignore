@@ -118,3 +118,7 @@ InitTestScene*.unity*
 
 # Auto-generated cache in Assets folder
 /[Aa]ssets/[Ss]ceneDependencyCache*
+
+# Ludify: per-developer secrets and local test files (never commit)
+ludify_secrets.json
+/SampleLectures/
