@@ -82,6 +82,12 @@ mono_crash.*
 *.apk
 *.aab
 *.unitypackage
+
+# Claude Code local session settings
+.claude/
+
+# Editor debug/progress screenshots (not project content)
+/Screenshots/
 *.unitypackage.meta
 *.app
 
