@@ -1,0 +1,43 @@
+# Normalize line endings: store LF in the repo, check out native on each OS.
+# Binary files are auto-detected and left untouched.
+* text=auto
+
+# Code and text
+*.cs        text diff=csharp
+*.shader    text
+*.hlsl      text
+*.cginc     text
+*.compute   text
+*.uss       text
+*.uxml      text
+*.md        text
+
+# Unity YAML assets: LF everywhere so Mac and Windows don't fight over line endings.
+# text=auto (not text) because some of these (e.g. TerrainData .asset, lighting data) can be binary.
+# merge=unityyamlmerge only takes effect if Unity Smart Merge is configured (see CLAUDE.md);
+# otherwise git uses its normal merge.
+*.unity        text=auto eol=lf merge=unityyamlmerge
+*.prefab       text=auto eol=lf merge=unityyamlmerge
+*.asset        text=auto eol=lf merge=unityyamlmerge
+*.mat          text=auto eol=lf merge=unityyamlmerge
+*.anim         text=auto eol=lf merge=unityyamlmerge
+*.controller   text=auto eol=lf merge=unityyamlmerge
+*.meta         text=auto eol=lf merge=unityyamlmerge
+
+# Binaries: never diff or convert line endings.
+# (Git LFS is intentionally NOT enabled yet. Decide as a team before turning it on.)
+*.png  binary
+*.jpg  binary
+*.jpeg binary
+*.psd  binary
+*.tga  binary
+*.exr  binary
+*.fbx  binary
+*.glb  binary
+*.blend binary
+*.onnx binary
+*.wav  binary
+*.mp3  binary
+*.ogg  binary
+*.pdf  binary
+*.pptx binary
