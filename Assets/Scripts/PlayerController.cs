@@ -11,8 +11,19 @@ public class PlayerController : MonoBehaviour
     public float jumpHeight = 1.5f;
     public Transform cameraTransform;
 
+    [Header("Animation")]
+    public Transform visualRoot;
+    public Transform leftLeg;
+    public Transform rightLeg;
+    public Transform leftArm;
+    public Transform rightArm;
+    public float walkCycleSpeed = 8f;
+    public float limbSwingAngle = 35f;
+    public float bobHeight = 0.05f;
+
     private CharacterController controller;
     private float verticalVelocity;
+    private float walkCyclePhase;
 
     void Awake()
     {
@@ -57,6 +68,35 @@ public class PlayerController : MonoBehaviour
         {
             Quaternion targetRot = Quaternion.LookRotation(moveDir, Vector3.up);
             transform.rotation = Quaternion.Slerp(transform.rotation, targetRot, turnSpeed * Time.deltaTime);
+        }
+
+        AnimateVisual(moveDir.magnitude, speed);
+    }
+
+    void AnimateVisual(float moveAmount, float speed)
+    {
+        bool moving = moveAmount > 0.05f && controller.isGrounded;
+
+        if (moving)
+        {
+            walkCyclePhase += Time.deltaTime * walkCycleSpeed * (speed / moveSpeed);
+        }
+        else
+        {
+            walkCyclePhase = Mathf.Lerp(walkCyclePhase, 0f, Time.deltaTime * 6f);
+        }
+
+        float swing = Mathf.Sin(walkCyclePhase) * limbSwingAngle * (moving ? 1f : 0f);
+
+        if (leftLeg) leftLeg.localRotation = Quaternion.Euler(swing, 0f, 0f);
+        if (rightLeg) rightLeg.localRotation = Quaternion.Euler(-swing, 0f, 0f);
+        if (leftArm) leftArm.localRotation = Quaternion.Euler(-swing, 0f, 0f);
+        if (rightArm) rightArm.localRotation = Quaternion.Euler(swing, 0f, 0f);
+
+        if (visualRoot)
+        {
+            float bob = moving ? Mathf.Abs(Mathf.Sin(walkCyclePhase * 2f)) * bobHeight : 0f;
+            visualRoot.localPosition = new Vector3(0f, bob, 0f);
         }
     }
 }
