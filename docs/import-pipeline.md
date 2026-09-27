@@ -58,6 +58,37 @@ To import from gameplay code: `await new LessonImporter().ImportAsync(path, prog
 
 ---
 
+## Ways to import (all runtime, Mac + Windows)
+
+- **Lecture → questions**: the "Import lecture" button opens `ImportPanel`, which offers:
+  - choose a file (PDF, PPTX, DOCX, TXT/MD, PNG/JPG),
+  - paste text (`LessonImporter.ImportTextAsync`),
+  - paste an image (`ImportImageAsync`).
+
+  Images and PDFs go to Gemini as attachments.
+- **Pasting images** (`ImagePaste.ReadAsync`) accepts, in this order: a clipboard picture (Snipping Tool,
+  screenshots, "Copy image" in a browser), a copied image file, an image link (downloaded), or a data: URL.
+  Unity only reads clipboard text, so pictures are read by PowerShell (Windows) or osascript + sips (macOS).
+  They're scaled to ≤2000 px.
+- Dragging images from a browser into the game window isn't supported by Unity players; copy/paste covers it.
+
+## Image → 3D exhibits (art gallery)
+
+```
+image ──ImageModelGenerator (1 Gemini vision call, responseSchema, cached by image hash)──► SceneModel
+SceneModel { title, subject, explanation, displayMode, parts[{id, kind, x,y,z (0–10 box), size, rotationY, color, label, value}],
+             links[{from, to, kind: wire|bond|double_bond|arrow|line}] }
+   ──LayoutRelaxer (spring layout for circuits, de-overlap for diagrams, molecules untouched)
+   ──ModelBuilder + PartLibrary + LinkBuilder──► GameObject (fits a 2.6 m cube, front faces −Z)
+```
+- Part kinds: generic (box, sphere, cylinder, cone, arrow, label, panel); circuit (battery, resistor with real color
+  bands, bulb, switch, capacitor, led, meter, ground, node); chemistry (atom with CPK colors).
+- Circuits with a battery get animated current dots along the wires. `displayMode: "image"` (text slides, photos)
+  becomes a framed picture (`ModelBuilder.BuildImagePanel`).
+- Cache: `persistentDataPath/ImageModels/<hash>.json`. Bump `ImageModelGenerator.PipelineVersion` when the prompt changes.
+
+---
+
 ## Key constraint: this is a *runtime* import
 
 Teachers use the **built game**, not the Unity Editor. Unity's normal import system

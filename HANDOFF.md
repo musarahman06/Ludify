@@ -44,6 +44,36 @@ Code is in `Assets/Scripts/City/`.
 
 ---
 
+## 2026-09-27: BenJPanackal (outdoor art gallery + paste import)
+
+The gallery touches the city area (the NE blocks), but **no scene or teammate files were edited**. Everything is built at runtime.
+
+**Done**
+- **Art gallery** (`Assets/Ludify/Gallery/`). At runtime:
+  - the `InnerOutskirtsBuildings` blocks (NE, x 290–500, z 297–500) are switched off;
+  - each lot becomes a lawn, and 18 large pedestals stand on every other lawn;
+  - an entrance gate at the south marks it. Only the gate's posts are solid, so you can walk through it.
+
+  There's a purple **A** "Art Gallery" marker on the map (via `MapMarkers`).
+- At an empty pedestal, press **I** (choose a file or paste) or **Ctrl+V** (paste straight away).
+  - **Gemini reads the image** and describes it as parts + links. Unity builds a labeled 3D model: circuits with real
+    batteries/resistors/bulbs, animated current, molecules, diagrams. Text slides and photos become a framed picture.
+  - At a filled pedestal, press **I** to inspect (orbit camera, explanation, Replace / Remove, Esc to go back).
+  - Exhibits are saved and reload with no API calls.
+- **Paste everywhere:** "Import lecture" now offers file / **paste text** / **paste image** (Snipping Tool, browser
+  "Copy image", image links). Pasted screenshots of slides work as lecture material too.
+- The game pauses while an import panel is open, and player/camera/car controls are off, so typing doesn't move you.
+
+**For the City Life code (musarahman)**
+- The gallery hides those buildings **before or after** City Life starts (order isn't guaranteed). Afterwards it removes
+  them from `CityColorizer.Buildings` and re-bakes the `_CityLife` NavMesh, so NPCs walk through the gallery and hints
+  never mention removed buildings. If you rebuild the city in that area, tell me and I'll move the gallery rect.
+- `LessonFilePicker.IsOpen` is now also true while an import panel is open (your quests already respect it).
+
+**Mac teammates, please test:** Ctrl+V paste on macOS uses `osascript` + `sips`. It's untested on a Mac so far.
+
+---
+
 ## 2026-09-26 (4): BenJPanackal (minimap, full map, question-gated fast travel)
 
 Touches the gameplay area (map/HUD/player position), but **no gameplay files or scenes were edited**.

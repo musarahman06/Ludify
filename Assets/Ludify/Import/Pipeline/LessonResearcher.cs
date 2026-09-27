@@ -78,6 +78,8 @@ namespace Ludify.Import
                 SystemInstruction = SystemPrompt,
                 Text = LessonPrompt.Append(prompt, lesson),
                 PdfBytes = lesson.PdfBytes,
+                ImageBytes = lesson.ImageBytes,
+                ImageMimeType = lesson.ImageMimeType,
                 UseGoogleSearch = web,
                 Temperature = 0.3f,
             }, ct);
@@ -95,6 +97,7 @@ namespace Ludify.Import
         public static string Append(string instructions, LessonContent lesson)
         {
             if (lesson.IsPdf) return instructions + "\n\nThe class material is the attached PDF.";
+            if (lesson.IsImage) return instructions + "\n\nThe class material is the attached image (e.g. a slide or notes).";
 
             string text = lesson.Text;
             if (text.Length > MaxLessonChars)

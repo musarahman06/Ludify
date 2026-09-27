@@ -9,8 +9,14 @@ namespace Ludify.Import
         public string FileName;
         public string Text;
         public byte[] PdfBytes;
+        /// <summary>A picture of the material (slide screenshot, photo of notes…), read by Gemini's vision.</summary>
+        public byte[] ImageBytes;
+        public string ImageMimeType;
 
         public bool IsPdf => PdfBytes != null;
+        public bool IsImage => ImageBytes != null;
+        /// <summary>True when Gemini reads an attachment instead of extracted text.</summary>
+        public bool IsAttachment => IsPdf || IsImage;
     }
 
     public interface ILessonReader

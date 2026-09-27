@@ -103,6 +103,8 @@ namespace Ludify.Import
                 SystemInstruction = SystemPrompt,
                 Text = LessonPrompt.Append(string.Format(Instructions, count, notes), lesson),
                 PdfBytes = lesson.PdfBytes,
+                ImageBytes = lesson.ImageBytes,
+                ImageMimeType = lesson.ImageMimeType,
                 ResponseSchema = Schema,
                 Temperature = 0.7f,
             }, ct);

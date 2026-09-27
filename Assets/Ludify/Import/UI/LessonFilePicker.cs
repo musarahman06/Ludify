@@ -10,15 +10,24 @@ namespace Ludify.Import
     /// <summary>Opens the runtime file browser (works in Mac/Windows builds) filtered to lecture files.</summary>
     public static class LessonFilePicker
     {
-        public static bool IsOpen => FileBrowser.IsOpen;
+        /// <summary>True while the file browser or any import panel is open (gameplay input should wait).</summary>
+        public static bool IsOpen => FileBrowser.IsOpen || ModalGuard.IsOpen;
 
-        public static void Show(Action<string> onPicked)
+        public static readonly string[] ImageExtensions = { ".png", ".jpg", ".jpeg" };
+
+        public static void Show(Action<string> onPicked) =>
+            Show(onPicked, "Lecture files", LessonReaderFactory.SupportedExtensions.Select(e => "." + e).ToArray(),
+                 "Choose a lecture file", "Import");
+
+        public static void ShowImages(Action<string> onPicked) =>
+            Show(onPicked, "Images", ImageExtensions, "Choose an image", "Use image");
+
+        public static void Show(Action<string> onPicked, string filterName, string[] extensions, string title, string button)
         {
             EnsureEventSystem();
-            string[] extensions = LessonReaderFactory.SupportedExtensions.Select(e => "." + e).ToArray();
-            FileBrowser.SetFilters(false, new FileBrowser.Filter("Lecture files", extensions));
+            FileBrowser.SetFilters(false, new FileBrowser.Filter(filterName, extensions));
             FileBrowser.ShowLoadDialog(paths => onPicked(paths[0]), null, FileBrowser.PickMode.Files,
-                                       false, null, null, "Choose a lecture file", "Import");
+                                       false, null, null, title, button);
         }
 
         /// <summary>uGUI needs an EventSystem for clicks (this project uses the Input System).</summary>

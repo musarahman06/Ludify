@@ -18,6 +18,7 @@ rather than editing their files.
 | Gameplay: scenes, map, player, mechanics | Gameplay teammate | `Assets/Scenes/`, `Assets/Terrain/`, `Assets/Kenney/`, `Assets/Ludify/Gameplay/` |
 | File import → 3D pipeline | BenJPanackal (import team) | `Assets/Ludify/Import/`, `Server/` |
 | Minimap / full map / fast travel | BenJPanackal (built on request; gameplay teammate may take over) | `Assets/Ludify/Map/` |
+| Outdoor art gallery (image → 3D exhibits) | BenJPanackal | `Assets/Ludify/Gallery/` |
 
 - Import code uses the `Ludify.Import` namespace and is tested in its own scene
   (`Assets/Ludify/Import/Scenes/ImportTest.unity`). **Do not edit gameplay scenes to test import.**
@@ -43,7 +44,17 @@ Full design: `docs/import-pipeline.md`. Teachers pick files at **runtime** (in t
 can use `PlayerController`/`OrbitCamera`). Runtime-installed, map image is a live top-down render of the scene.
 Fast-travel points live in `FastTravelPoints.Resolve`.
 
-**Planned: images → 3D** (panel → depth relief → AI mesh, loaded with glTFast).
+**Built: outdoor art gallery** (`Assets/Ludify/Gallery/`). At runtime it replaces the `InnerOutskirtsBuildings`
+blocks (NE, x 290–500, z 297–500) with lawns and 18 pedestals. Anyone presses **I** at a pedestal to add an image, or
+**Ctrl+V** to paste one. Gemini turns it into a `SceneModel` (parts and links), and `ModelBuilder` builds it from
+primitives. Circuits, molecules and diagrams become 3D; anything else becomes a framed picture. Saved in
+`persistentDataPath/Gallery`. The image → 3D code lives in `Assets/Ludify/Import/Building/` and is reusable.
+
+**Paste support:** `ImportPanel` (file / paste image / paste text) is used by the lecture import and the gallery.
+`ImagePaste` reads clipboard pictures via PowerShell (Windows) or osascript (macOS).
+`ModalGuard` pauses the game while a panel is open, and `LessonFilePicker.IsOpen` is true then too.
+
+**Planned: photo → 3D mesh** (panel → depth relief → AI mesh, loaded with glTFast).
 
 Editor-only APIs (`AssetDatabase`, `ScriptedImporter`, Unity AI generators) are fine for dev
 tooling but must never be on the runtime path. Teachers use the built game.

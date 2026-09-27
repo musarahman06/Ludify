@@ -12,6 +12,7 @@ namespace Ludify.Import
             new PptxLessonReader(),
             new DocxLessonReader(),
             new TextLessonReader(),
+            new ImageLessonReader(),
         };
 
         /// <summary>Extensions without the dot, for file-picker filters, e.g. "pdf".</summary>
@@ -34,7 +35,7 @@ namespace Ludify.Import
             try { content = reader.Read(path); }
             catch (IOException e) { throw new ImportException($"Couldn't open \"{Path.GetFileName(path)}\". Is it open in another program?", e); }
 
-            if (!content.IsPdf && string.IsNullOrWhiteSpace(content.Text))
+            if (!content.IsAttachment && string.IsNullOrWhiteSpace(content.Text))
                 throw new ImportException(
                     $"No text found in \"{content.FileName}\". If the slides are pictures of text, export them to PDF and import that instead.");
             return content;

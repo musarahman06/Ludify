@@ -39,6 +39,38 @@ namespace Ludify.Import
                 return (content, ComputeId(path));
             }, ct);
 
+            return await ImportContentAsync(lesson, id, progress, forceRegenerate, ct);
+        }
+
+        /// <summary>Lecture notes pasted as text (e.g. copied from a PDF, Word doc or slides).</summary>
+        public Task<QuestionBank> ImportTextAsync(string text, string title = null, IProgress<string> progress = null,
+                                                  bool forceRegenerate = false, CancellationToken ct = default)
+        {
+            text = text?.Trim() ?? "";
+            if (text.Length < 40)
+                throw new ImportException("Paste a bit more of the lecture (at least a few sentences) so there's something to ask about.");
+            _ = QuestionBankStore.Folder;
+            var lesson = new LessonContent { FileName = string.IsNullOrWhiteSpace(title) ? "Pasted notes" : title.Trim(), Text = text };
+            return ImportContentAsync(lesson, ComputeId(Encoding.UTF8.GetBytes(text)), progress, forceRegenerate, ct);
+        }
+
+        /// <summary>A pasted picture of lecture material (e.g. a Snipping Tool screenshot of a slide).</summary>
+        public Task<QuestionBank> ImportImageAsync(byte[] image, string mimeType, string title = null, IProgress<string> progress = null,
+                                                   bool forceRegenerate = false, CancellationToken ct = default)
+        {
+            if (image == null || image.Length == 0) throw new ImportException("There's no image to import.");
+            _ = QuestionBankStore.Folder;
+            var lesson = new LessonContent
+            {
+                FileName = string.IsNullOrWhiteSpace(title) ? "Pasted image" : title.Trim(),
+                ImageBytes = image, ImageMimeType = mimeType ?? "image/png",
+            };
+            return ImportContentAsync(lesson, ComputeId(image), progress, forceRegenerate, ct);
+        }
+
+        async Task<QuestionBank> ImportContentAsync(LessonContent lesson, string id, IProgress<string> progress,
+                                                    bool forceRegenerate, CancellationToken ct)
+        {
             if (!forceRegenerate && QuestionBankStore.TryLoad(id, out QuestionBank cached))
             {
                 progress?.Report($"Loaded {cached.Questions.Count} saved questions (no AI calls needed).");
@@ -74,12 +106,13 @@ namespace Ludify.Import
             return bank;
         }
 
-        string ComputeId(string path)
+        string ComputeId(string path) => ComputeId(File.ReadAllBytes(path));
+
+        string ComputeId(byte[] data)
         {
             using (var sha = SHA256.Create())
-            using (FileStream stream = File.OpenRead(path))
             {
-                byte[] fileHash = sha.ComputeHash(stream);
+                byte[] fileHash = sha.ComputeHash(data);
                 string settings = $"|{PipelineVersion}|{_config.Model}|{_config.QuestionsPerFile}|{_config.UseWebResearch}";
                 byte[] combined = sha.ComputeHash(Combine(fileHash, Encoding.UTF8.GetBytes(settings)));
                 return BitConverter.ToString(combined, 0, 12).Replace("-", "").ToLowerInvariant();

@@ -26,7 +26,9 @@ namespace Ludify.Import.Editor
             try
             {
                 LessonContent lesson = LessonReaderFactory.Read(path);
-                if (lesson.IsPdf)
+                if (lesson.IsImage)
+                    Debug.Log($"[Ludify.Import] {lesson.FileName}: image, {lesson.ImageBytes.Length / 1024} KB. Gemini will read it.");
+                else if (lesson.IsPdf)
                     Debug.Log($"[Ludify.Import] {lesson.FileName}: PDF, {lesson.PdfBytes.Length / 1024} KB. It will be sent to Gemini as-is.");
                 else
                     Debug.Log($"[Ludify.Import] {lesson.FileName}: {lesson.Text.Length} characters extracted:\n{lesson.Text}");

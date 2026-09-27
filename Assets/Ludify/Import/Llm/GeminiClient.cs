@@ -18,6 +18,10 @@ namespace Ludify.Import
         /// <summary>Optional PDF sent alongside the text (Gemini reads it natively).</summary>
         public byte[] PdfBytes;
 
+        /// <summary>Optional image sent alongside the text (vision input).</summary>
+        public byte[] ImageBytes;
+        public string ImageMimeType = "image/png";
+
         /// <summary>Let the model search Google (grounding). Returns source links.</summary>
         public bool UseGoogleSearch;
 
@@ -84,7 +88,9 @@ namespace Ludify.Import
         {
             var parts = new JArray();
             if (r.PdfBytes != null)
-                parts.Add(new JObject { ["inline_data"] = new JObject { ["mime_type"] = "application/pdf", ["data"] = Convert.ToBase64String(r.PdfBytes) } });
+                parts.Add(InlineData("application/pdf", r.PdfBytes));
+            if (r.ImageBytes != null)
+                parts.Add(InlineData(r.ImageMimeType, r.ImageBytes));
             parts.Add(new JObject { ["text"] = r.Text });
 
             var body = new JObject
@@ -106,6 +112,9 @@ namespace Ludify.Import
             if (gen.Count > 0) body["generationConfig"] = gen;
             return body;
         }
+
+        static JObject InlineData(string mimeType, byte[] data) =>
+            new JObject { ["inline_data"] = new JObject { ["mime_type"] = mimeType, ["data"] = Convert.ToBase64String(data) } };
 
         static GeminiResult ParseResult(JObject response)
         {

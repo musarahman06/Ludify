@@ -98,6 +98,36 @@ namespace Ludify.Import
             return button;
         }
 
+        /// <summary>A TMP input field (multi-line if <paramref name="multiline"/>), with placeholder text.</summary>
+        public static TMP_InputField InputField(string name, Transform parent, string placeholder, float fontSize, bool multiline)
+        {
+            Image bg = Image(name, parent, new Color(0.05f, 0.06f, 0.08f, 1f), RoundedSprite, raycast: true);
+            bg.type = UnityEngine.UI.Image.Type.Sliced;
+            RectTransform viewport = Stretch(Rect("Viewport", bg.transform), 12);
+            viewport.gameObject.AddComponent<RectMask2D>();
+
+            TextMeshProUGUI hint = Text("Placeholder", viewport, placeholder, fontSize,
+                                        multiline ? TextAlignmentOptions.TopLeft : TextAlignmentOptions.Left, new Color(1, 1, 1, 0.35f));
+            Stretch(hint.rectTransform);
+            hint.fontStyle = FontStyles.Italic;
+            TextMeshProUGUI text = Text("Text", viewport, "", fontSize, multiline ? TextAlignmentOptions.TopLeft : TextAlignmentOptions.Left);
+            Stretch(text.rectTransform);
+
+            var field = bg.gameObject.AddComponent<TMP_InputField>();
+            field.textViewport = viewport;
+            field.textComponent = text;
+            field.placeholder = hint;
+            field.targetGraphic = bg;
+            field.lineType = multiline ? TMP_InputField.LineType.MultiLineNewline : TMP_InputField.LineType.SingleLine;
+            field.characterLimit = 0;
+            field.richText = false;
+            field.caretWidth = 2;
+            field.customCaretColor = true;
+            field.caretColor = Color.white;
+            field.selectionColor = new Color(0.25f, 0.55f, 0.95f, 0.5f);
+            return field;
+        }
+
         public static void SetButtonLabel(Button button, string label) =>
             button.GetComponentInChildren<TextMeshProUGUI>().text = label;
 
