@@ -65,32 +65,40 @@ public static class QuestTemplates
         }
     }
 
-    /// <summary>Three levels of hint, from vague to precise, built from where the target really is.</summary>
-    public static string Hint(Kind kind, int level, string noun, string recipient, Vector3 target, Vector3 hinter)
+    /// <summary>
+    /// Three levels of hint, from vague to precise, built from where the target really is. Every hint also draws a
+    /// search circle on the map (see QuestManager), so the words only need to say what to look for.
+    /// <paramref name="landmark"/> is the building that gets a floating "?" for hint 2 (null for deliveries).
+    /// </summary>
+    public static string Hint(Kind kind, int level, string noun, string recipient, Vector3 target, Vector3 hinter,
+                              CityColorizer.Building? landmark)
     {
         string area = CityArea.DescribeArea(target);
-        string color = CityColorizer.NearestBuildingColor(target);
-        string near = color != null ? $"next to a {color} building" : "near some buildings";
         string direction = CityArea.DescribeDirection(hinter, target);
+        string building = landmark.HasValue ? $"the {landmark.Value.RichName} building with the tall blue <b>?</b> light next to it" : "a big building";
+        const string mapped = " I've circled the spot on your map.";
 
         if (kind == Kind.Delivery)
         {
+            var near = CityColorizer.NearestBuilding(target);
             switch (level)
             {
-                case 0: return $"{recipient}? They usually hang around {area}.";
-                case 1: return $"I just saw {recipient} walking past a {color ?? "big"} building.";
-                default: return $"{recipient} went {direction}.";
+                case 0: return $"{recipient}? They usually hang around {area}." + mapped;
+                case 1: return $"I just saw {recipient} walking past a {(near.HasValue ? near.Value.RichName : "big")} building." + mapped;
+                default: return $"{recipient} went {direction}. You're really close!" + mapped;
             }
         }
-        string it = kind == Kind.LostPet ? "It" : kind == Kind.Pages ? "They" : "It";
         switch (level)
         {
-            case 0: return kind == Kind.Pages ? $"I saw papers blowing around {area}." : $"I think I saw {Article(noun)} {area}.";
+            case 0:
+                return (kind == Kind.Pages ? $"I saw papers blowing around {area}." : $"I think I saw {Article(noun)} {area}.") + mapped;
             case 1:
-                return kind == Kind.LostPet ? $"There was a little {noun} hiding {near}. Look for paw prints!"
-                    : kind == Kind.Pages ? $"Some pages landed {near}. They sparkle when you get close."
-                    : $"I spotted {Article(noun)} {near}. It sparkles when you get close.";
-            default: return kind == Kind.LostPet ? $"{it} went {direction}." : $"{it} {(kind == Kind.Pages ? "are" : "is")} {direction}.";
+                return kind == Kind.LostPet ? $"There was a little {noun} hiding next to {building}. Look for paw prints!"
+                    : kind == Kind.Pages ? $"Some pages landed next to {building}. They sparkle when you get close."
+                    : $"I spotted {Article(noun)} next to {building}. It sparkles when you get close.";
+            default:
+                string it = kind == Kind.Pages ? "They're" : "It's";
+                return $"{it} {direction}. Look inside the small circle on your map!";
         }
     }
 

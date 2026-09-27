@@ -15,6 +15,7 @@ namespace Ludify.Map
         RectTransform _mapRect, _player;
         TextMeshProUGUI _status;
         readonly List<(FastTravelPoint Point, RectTransform Marker)> _markers = new List<(FastTravelPoint, RectTransform)>();
+        readonly List<(FastTravelPoint Point, RectTransform Circle)> _areas = new List<(FastTravelPoint, RectTransform)>();
 
         public static FullMapView Create(MapSystem map, Transform canvas)
         {
@@ -43,6 +44,15 @@ namespace Ludify.Map
             RebuildMarkers();
             MapMarkers.Changed += RebuildMarkers;
 
+            // North arrow in the top-left corner (the map is north-up).
+            Image compass = UiKit.Image("Compass", frame.transform, new Color(0.1f, 0.12f, 0.18f, 0.9f), UiKit.CircleSprite);
+            UiKit.Place(compass.rectTransform, new Vector2(0f, 1f), new Vector2(24, -24), new Vector2(64, 64));
+            Image north = UiKit.Image("North", compass.transform, new Color(1f, 0.45f, 0.4f), UiKit.ArrowSprite);
+            UiKit.Place(north.rectTransform, new Vector2(0.5f, 0.5f), new Vector2(0, 6), new Vector2(26, 26));
+            TextMeshProUGUI n = UiKit.Text("N", compass.transform, "N", 18);
+            n.fontStyle = FontStyles.Bold;
+            UiKit.Place(n.rectTransform, new Vector2(0.5f, 0f), new Vector2(0, 4), new Vector2(40, 22));
+
             _player = UiKit.Image("Player", _mapRect, Color.white, UiKit.ArrowSprite).rectTransform;
             _player.anchorMin = _player.anchorMax = Vector2.zero;
             _player.sizeDelta = new Vector2(30, 30);
@@ -68,8 +78,20 @@ namespace Ludify.Map
         {
             foreach (var (_, marker) in _markers)
                 if (marker != null) Destroy(marker.gameObject);
+            foreach (var (_, circle) in _areas)
+                if (circle != null) Destroy(circle.gameObject);
             _markers.Clear();
-            foreach (FastTravelPoint point in MapMarkers.All) _markers.Add((point, AddMarker(point)));
+            _areas.Clear();
+            foreach (FastTravelPoint point in MapMarkers.All)
+            {
+                if (point.Radius > 0)
+                {
+                    RectTransform circle = MinimapView.AreaCircle(point, _mapRect);
+                    circle.pivot = new Vector2(0.5f, 0.5f);
+                    _areas.Add((point, circle));
+                }
+                _markers.Add((point, AddMarker(point)));
+            }
             if (_player != null) _player.SetAsLastSibling(); // keep the player arrow on top
         }
 
@@ -103,6 +125,13 @@ namespace Ludify.Map
             MapMarkers.UpdatePositions();
             foreach (var (point, marker) in _markers)
                 marker.anchorMin = marker.anchorMax = _map.Snapshot.WorldToUv(point.Position);
+            foreach (var (point, circle) in _areas)
+            {
+                circle.anchorMin = circle.anchorMax = _map.Snapshot.WorldToUv(point.Position);
+                circle.anchoredPosition = Vector2.zero;
+                float diameter = point.Radius * 2 / _map.Snapshot.WorldRect.width * _mapRect.rect.width;
+                circle.sizeDelta = new Vector2(diameter, diameter);
+            }
             Vector2 uv = _map.Snapshot.WorldToUv(focus.position);
             _player.anchoredPosition = new Vector2(uv.x * _mapRect.rect.width, uv.y * _mapRect.rect.height);
             _player.localRotation = Quaternion.Euler(0, 0, -focus.eulerAngles.y);

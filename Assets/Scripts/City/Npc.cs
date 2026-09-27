@@ -104,9 +104,10 @@ public class Npc : MonoBehaviour
             Vector3 candidate = transform.position + Random.insideUnitSphere * WanderRadius;
             candidate.y = transform.position.y;
             if (!CityArea.Contains(candidate)) continue;
-            if (NavMesh.SamplePosition(candidate, out var hit, 4f, NavMesh.AllAreas) && CityArea.Contains(hit.position))
+            Vector3? street = CityNav.Snap(candidate, 4f);   // outside on the streets, never a roof or indoors
+            if (street.HasValue)
             {
-                agent.SetDestination(hit.position);
+                agent.SetDestination(street.Value);
                 return;
             }
         }

@@ -1,7 +1,5 @@
 using System.Collections.Generic;
-using Unity.AI.Navigation;
 using UnityEngine;
-using UnityEngine.AI;
 using UnityEngine.SceneManagement;
 
 /// <summary>
@@ -40,7 +38,7 @@ public static class CityLifeBootstrap
         SceneManager.MoveGameObjectToScene(root, scene);
 
         CityColorizer.Apply();
-        BuildNavMesh(root);
+        CityNav.Build(root);
 
         QuestTargets.SetTemplate(player.visualRoot.GetComponentInChildren<MeshRenderer>().sharedMaterial);
 
@@ -49,10 +47,8 @@ public static class CityLifeBootstrap
         npcParent.SetParent(root.transform, false);
         for (int attempt = 0; attempt < ResidentCount * 10 && residents.Count < ResidentCount; attempt++)
         {
-            Vector3 p = CityArea.RandomPoint();
-            if (!NavMesh.SamplePosition(new Vector3(p.x, 0.5f, p.z), out var hit, 3f, NavMesh.AllAreas)) continue;
-            if (!CityArea.Contains(hit.position)) continue;
-            residents.Add(NpcFactory.Create(player, hit.position, npcParent));
+            Vector3? p = CityNav.RandomPoint();
+            if (p.HasValue) residents.Add(NpcFactory.Create(player, p.Value, npcParent));
         }
 
         var dialogue = DialogueBox.Create();
@@ -62,22 +58,5 @@ public static class CityLifeBootstrap
         root.AddComponent<QuestManager>().Init(residents, dialogue, hud, player);
 
         Debug.Log($"[CityLife] {residents.Count} residents walking around the city.");
-    }
-
-    static void BuildNavMesh(GameObject root)
-    {
-        float started = Time.realtimeSinceStartup;
-        var surface = root.AddComponent<NavMeshSurface>();
-        surface.collectObjects = CollectObjects.Volume;
-        // East bank only (the river curves, so leave a margin; CityArea.Contains trims the rest).
-        var min = new Vector3(CityArea.MinX - 20f, -5f, CityArea.MinZ - 5f);
-        var max = new Vector3(CityArea.MaxX + 5f, 15f, CityArea.MaxZ + 5f);
-        surface.center = (min + max) * 0.5f;
-        surface.size = max - min;
-        surface.useGeometry = NavMeshCollectGeometry.PhysicsColliders;
-        surface.overrideVoxelSize = true;
-        surface.voxelSize = 0.3f;
-        surface.BuildNavMesh();
-        Debug.Log($"[CityLife] City NavMesh built in {(Time.realtimeSinceStartup - started) * 1000f:0} ms.");
     }
 }

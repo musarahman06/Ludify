@@ -20,6 +20,7 @@ public class QuestTarget : MonoBehaviour
     float bubbleUntil, nextBubble, walkPhase;
     Vector3 basePos;
     NavMeshAgent agent;
+    AudioSource voice;
     bool wasHidden;
     readonly List<Transform> legs = new List<Transform>();
 
@@ -33,6 +34,17 @@ public class QuestTarget : MonoBehaviour
             if (body != null)
                 foreach (Transform child in body)
                     if (child.name == "Leg") legs.Add(child);
+
+            // 3D voice: you can hear it from ~35 m and home in on it.
+            voice = gameObject.AddComponent<AudioSource>();
+            voice.clip = Sound == "Woof!" ? QuestTargets.WoofClip : QuestTargets.MeowClip;
+            voice.playOnAwake = false;
+            voice.spatialBlend = 1f;
+            voice.rolloffMode = AudioRolloffMode.Linear;
+            voice.minDistance = 4f;
+            voice.maxDistance = HearingRange;
+            voice.dopplerLevel = 0f;
+            voice.volume = 0.9f;
 
             var go = new GameObject("Bubble");
             go.transform.SetParent(transform, false);
@@ -79,11 +91,28 @@ public class QuestTarget : MonoBehaviour
         if (agent != null && agent.enabled) agent.isStopped = true;
         foreach (var leg in legs) leg.localRotation = Quaternion.identity;
         basePos = transform.position;
-        if (bubble != null) { bubble.text = Sound; bubbleUntil = Time.time + 3f; }
+        Speak(true);
+        bubbleUntil = Time.time + 3f;
         Destroy(gameObject, 12f);
     }
 
     const float CatchUpDistance = 18f;
+    const float HearingRange = 35f, BubbleRange = 15f;
+
+    /// <summary>Meow/woof out loud (and show it in a bubble if <paramref name="showBubble"/>).</summary>
+    void Speak(bool showBubble)
+    {
+        if (voice != null)
+        {
+            voice.pitch = Random.Range(0.9f, 1.15f);
+            voice.Play();
+        }
+        if (showBubble && bubble != null)
+        {
+            bubble.text = Sound;
+            bubbleUntil = Time.time + 1.4f;
+        }
+    }
 
     /// <summary>Trot along behind the player. Hides while they're in a car and pops back out beside them.</summary>
     void FollowPlayer()
@@ -92,6 +121,7 @@ public class QuestTarget : MonoBehaviour
         if (body) body.gameObject.SetActive(withPlayer);
         if (bubble) bubble.gameObject.SetActive(withPlayer);
         if (!withPlayer) { wasHidden = true; return; }
+        if (Time.time > nextBubble) { Speak(true); nextBubble = Time.time + Random.Range(8f, 15f); }   // happy to be found
 
         Vector3 heel = player.position - player.forward * 1.3f + player.right * 0.5f;
         float dist = Flat(transform.position - player.position).magnitude;
@@ -167,10 +197,10 @@ public class QuestTarget : MonoBehaviour
                 // Look around now and then.
                 transform.rotation = Quaternion.Euler(0f, transform.eulerAngles.y + Mathf.Sin(t * 0.7f) * 0.25f, 0f);
                 var p = QuestManager.PlayerPosition;
-                if (p.HasValue && (p.Value - transform.position).sqrMagnitude < 15f * 15f && t > nextBubble)
+                float d2 = p.HasValue ? (p.Value - transform.position).sqrMagnitude : float.MaxValue;
+                if (d2 < HearingRange * HearingRange && t > nextBubble)
                 {
-                    bubble.text = Sound;
-                    bubbleUntil = t + 1.4f;
+                    Speak(d2 < BubbleRange * BubbleRange);
                     nextBubble = t + Random.Range(2.5f, 4f);
                 }
             }
@@ -216,6 +246,60 @@ public static class QuestTargets
 
     static Material template;
     static Sprite pawSprite, glintSprite;
+    static AudioClip meow, woof;
+    const int SampleRate = 44100;
+
+    /// <summary>A cat's "mee-ow": pitch rises then falls, brightest in the middle (synthesised, no audio files).</summary>
+    public static AudioClip MeowClip => meow != null ? meow : meow = Synth("Meow", 0.75f, (t, u) =>
+    {
+        float f0 = u < 0.35f ? Mathf.Lerp(560f, 820f, u / 0.35f) : Mathf.Lerp(820f, 430f, (u - 0.35f) / 0.65f);
+        f0 *= 1f + 0.015f * Mathf.Sin(t * 2f * Mathf.PI * 6f);             // a little vibrato
+        float env = Mathf.Clamp01(u / 0.08f) * Mathf.Clamp01((1f - u) / 0.3f);
+        return new Voice { Pitch = f0, Amp = env, Harmonics = 7, Falloff = 2.2f - 1.4f * Mathf.Sin(u * Mathf.PI) };   // "ee" -> "ow"
+    });
+
+    /// <summary>"Woof woof": two short, low, rough barks.</summary>
+    public static AudioClip WoofClip => woof != null ? woof : woof = Synth("Woof", 0.8f, (t, u) =>
+    {
+        const float barkLength = 0.26f;
+        float bt = t < 0.4f ? t : t - 0.4f;
+        if (bt > barkLength) return default;
+        float bu = bt / barkLength;
+        return new Voice
+        {
+            Pitch = Mathf.Lerp(330f, 170f, Mathf.Sqrt(bu)),
+            Amp = Mathf.Clamp01(bt / 0.012f) * Mathf.Exp(-bu * 3.2f),
+            Harmonics = 10,
+            Falloff = 1.1f,
+            Noise = 0.4f * Mathf.Exp(-bt / 0.03f),   // breathy attack
+        };
+    });
+
+    struct Voice { public float Pitch, Amp, Falloff, Noise; public int Harmonics; }
+
+    static AudioClip Synth(string name, float seconds, System.Func<float, float, Voice> voiceAt)
+    {
+        int n = Mathf.CeilToInt(seconds * SampleRate);
+        var data = new float[n];
+        float phase = 0f, smooth = 0f, peak = 0.0001f;
+        var rng = new System.Random(name.GetHashCode());
+        for (int i = 0; i < n; i++)
+        {
+            float t = i / (float)SampleRate;
+            Voice v = voiceAt(t, t / seconds);
+            phase = (phase + v.Pitch / SampleRate) % 1f;   // integrate so pitch glides smoothly
+            float x = 0f;
+            for (int k = 1; k <= v.Harmonics; k++) x += Mathf.Sin(2f * Mathf.PI * k * phase) / Mathf.Pow(k, v.Falloff);
+            x = x * v.Amp + v.Noise * v.Amp * (float)(rng.NextDouble() * 2.0 - 1.0);
+            smooth += (x - smooth) * 0.35f;                // soften the top end
+            data[i] = smooth;
+            peak = Mathf.Max(peak, Mathf.Abs(smooth));
+        }
+        for (int i = 0; i < n; i++) data[i] *= 0.8f / peak;
+        var clip = AudioClip.Create(name, n, 1, SampleRate, false);
+        clip.SetData(data, 0);
+        return clip;
+    }
 
     public static void SetTemplate(Material m) => template = m;
     static Material M(Color c) => NpcFactory.MaterialFor(template, c);
@@ -390,6 +474,60 @@ public static class QuestTargets
             return hit.point;
         }
         return p;
+    }
+
+    /// <summary>
+    /// Hint 2's landmark: a tall cyan light pillar standing on the street right against the named building (on the
+    /// side facing the lost thing) and rising above the roofline, with a "?" at eye level and one at the top. You can
+    /// see it from the street nearby and from across the city.
+    /// </summary>
+    public static GameObject MakeBeacon(Bounds building, Vector3 target)
+    {
+        // The building edge closest to the target, nudged out onto the pavement.
+        Vector3 edge = building.ClosestPoint(new Vector3(target.x, building.center.y, target.z));
+        Vector3 outward = new Vector3(target.x - edge.x, 0f, target.z - edge.z);
+        Vector3 foot = new Vector3(edge.x, 0f, edge.z) + (outward.sqrMagnitude > 0.01f ? outward.normalized : Vector3.zero) * 0.8f;
+        foot = Ground(foot);
+        float height = Mathf.Max(30f, building.max.y + 10f - foot.y);
+
+        var root = new GameObject("HintBeacon");
+        root.transform.position = foot;
+        var pillar = Box(root.transform, "Pillar", new Vector3(0f, height / 2f, 0f), new Vector3(0.9f, height / 2f, 0.9f),
+                         new Color(0.35f, 0.85f, 1f), PrimitiveType.Cylinder);
+        pillar.GetComponent<MeshRenderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+        QuestionMark(root.transform, 5f, 22f);
+        QuestionMark(root.transform, height + 3.5f, 60f);
+        return root;
+    }
+
+    static void QuestionMark(Transform parent, float y, float size)
+    {
+        var go = new GameObject("QuestionMark");
+        go.transform.SetParent(parent, false);
+        go.transform.localPosition = new Vector3(0f, y, 0f);
+        var text = go.AddComponent<TextMeshPro>();
+        text.text = "?";
+        text.alignment = TextAlignmentOptions.Center;
+        text.fontSize = size;
+        text.fontStyle = FontStyles.Bold;
+        text.color = new Color(0.35f, 0.85f, 1f);
+        text.outlineWidth = 0.3f;
+        text.outlineColor = new Color32(10, 30, 60, 255);
+        text.rectTransform.sizeDelta = new Vector2(size / 7f, size / 7f);
+        go.AddComponent<Beacon>();
+    }
+
+    /// <summary>Bobs and always faces the camera.</summary>
+    sealed class Beacon : MonoBehaviour
+    {
+        Vector3 basePos;
+        void Start() => basePos = transform.position;
+        void LateUpdate()
+        {
+            transform.position = basePos + Vector3.up * Mathf.Sin(Time.time * 2f) * 0.4f;
+            var cam = Camera.main;
+            if (cam != null) transform.rotation = Quaternion.LookRotation(transform.position - cam.transform.position);
+        }
     }
 
     public static Transform MakeGlint(Transform parent)

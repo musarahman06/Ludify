@@ -31,12 +31,30 @@ Code is in `Assets/Scripts/City/`.
 - NPCs with a quest are marked on the minimap and full map with a yellow **!**; the person to return to gets a green **!**.
   Click a marker on the full map to fast travel there (same practice-question gate). Offers stay marked while
   you're on another quest; talking to them then says to come back later.
+- `CityNav`: each building's volume is marked not walkable on the NavMesh. Recast only sees a box collider's
+  faces, so before this there was walkable floor inside every building and on every roof. NPCs, wander targets,
+  lost pets, items and pages only use ground-level points connected to the main street network (checked from a hub point).
+- Pets can be heard: a synthesised 3D meow/woof (`AudioClip.Create`, no audio files) is audible from about 35 m
+  and gets louder as you get closer. The text bubble still only shows within 15 m.
+- Minimap has N/E/S/W on its rim and the full map has a north arrow, matching the compass words in the hints.
+- Easier quests (playtest: "near the sand building" meant nothing):
+  - Hint NPCs ask a practice question first (`QuestionPrompt.AskAsync`; free if no lecture is imported; Cancel =
+    no hint, come back later). They're marked with a blue "?" on the minimap and full map.
+  - Each hint draws a search circle on both maps (50 m → 30 m → 12 m, target inside, off-centre). The tracker shows a
+    live "Search area: north-east of you, about 70 m" line and the latest hint.
+  - Hint 2 names the building color in that color plus plain words ("lavender (light purple)"). A tall cyan
+    light pillar with "?" marks that building on the street side facing the target.
+  - Targets now spawn 40–120 m from the quest giver (was 60–180 m).
 
 **Map changes (BenJPanackal's folder, `Assets/Ludify/Map/`, please review)**
 - New `MapMarkers` (static add/remove list of runtime `FastTravelPoint`s, with a `Changed` event).
   `MinimapView` and `FullMapView` draw these alongside the fixed points and move them every frame.
 - `FastTravelPoint` gained `Glyph` (icon text, defaults to the first letter) and `Follow` (the marker tracks a
   transform; you land 2.5 m in front of it, facing it). Existing points behave exactly as before.
+- Compass: `MinimapView.AddCompass` (N/E/S/W badges; the "Map [M]" label moved up 14 px to clear the N) and a
+  north arrow in the full map's top-left corner.
+- `FastTravelPoint.Radius`: if above 0, both maps draw a translucent circle of that radius (metres) under the marker
+  (`MinimapView.AreaCircle`). Used for quest search areas.
 
 **Notes**
 - The UI font (LiberationSans SDF) has no ★ glyph, so the star is a procedural sprite.

@@ -38,6 +38,10 @@ public class QuestManager : MonoBehaviour
         public readonly List<string> Hints = new List<string>();
         public bool ReadyToTurnIn;
         public Vector3 HintAnchor;
+        /// <summary>Search circle on the map, smaller with each hint.</summary>
+        public FastTravelPoint SearchArea;
+        /// <summary>Floating "?" over the building named in hint 2.</summary>
+        public GameObject Beacon;
         public int Needed => Offer.Kind == Kind.Pages ? PagesNeeded : 1;
     }
 
@@ -55,7 +59,7 @@ public class QuestManager : MonoBehaviour
     Ludify.Map.MapSystem map;
     readonly Dictionary<Npc, Offer> offers = new Dictionary<Npc, Offer>();
     Active active;
-    Npc talkingTo;
+    Npc talkingTo, asking;
     float nextOfferTime;
 
     public void Init(List<Npc> residents, DialogueBox box, CityHud cityHud, PlayerController playerController)
@@ -76,7 +80,8 @@ public class QuestManager : MonoBehaviour
 
     // ------------------------------------------------------------------ map
 
-    static readonly Color OfferColor = new Color(1f, 0.78f, 0.15f), TurnInColor = new Color(0.3f, 0.85f, 0.35f);
+    static readonly Color OfferColor = new Color(1f, 0.78f, 0.15f), TurnInColor = new Color(0.3f, 0.85f, 0.35f),
+                          HintColor = new Color(0.3f, 0.8f, 1f), SearchColor = new Color(0.35f, 0.85f, 1f);
     readonly Dictionary<Npc, FastTravelPoint> mapMarkers = new Dictionary<Npc, FastTravelPoint>();
 
     /// <summary>People with a quest for you (and the person to hand one back to) are marked on the minimap and
@@ -87,6 +92,7 @@ public class QuestManager : MonoBehaviour
         {
             Color? color = offers.ContainsKey(npc) ? OfferColor
                 : active != null && active.ReadyToTurnIn && npc == active.Giver ? TurnInColor
+                : active != null && !active.ReadyToTurnIn && active.Hinters.Contains(npc) ? HintColor
                 : (Color?)null;
             mapMarkers.TryGetValue(npc, out var marker);
             if (marker != null && (!color.HasValue || marker.Color != color.Value))
@@ -97,7 +103,8 @@ public class QuestManager : MonoBehaviour
             }
             if (marker == null && color.HasValue)
             {
-                marker = new FastTravelPoint { Name = npc.DisplayName, Glyph = "!", Color = color.Value, Follow = npc.transform };
+                string glyph = color.Value == HintColor ? "?" : "!";
+                marker = new FastTravelPoint { Name = npc.DisplayName, Glyph = glyph, Color = color.Value, Follow = npc.transform };
                 mapMarkers[npc] = marker;
                 MapMarkers.Add(marker);
             }
@@ -111,7 +118,7 @@ public class QuestManager : MonoBehaviour
         if (player == null) return;
         timeTrial ??= FindAnyObjectByType<TimeTrialManager>();
 
-        if (talkingTo != null && !dialogue.IsOpen) { talkingTo.EndTalk(); talkingTo = null; }
+        if (talkingTo != null && !dialogue.IsOpen && asking == null) { talkingTo.EndTalk(); talkingTo = null; }
 
         if (active == null && offers.Count < OffersAtOnce && Time.time >= nextOfferTime) AddOffer();
         UpdateDeliveryIcon();
@@ -175,7 +182,7 @@ public class QuestManager : MonoBehaviour
         {
             if (npc == active.Giver) { TalkToGiver(); return; }
             if (active.Offer.Kind == Kind.Delivery && npc == active.Recipient) { Deliver(); return; }
-            if (active.Hinters.Contains(npc)) { GiveHint(npc); return; }
+            if (active.Hinters.Contains(npc) && !active.ReadyToTurnIn) { OfferHint(npc); return; }
             if (offers.ContainsKey(npc))
             {
                 dialogue.Show(npc.DisplayName, $"I could really use some help too, but you're already helping {active.Giver.DisplayName}. Come back when you're done!",
@@ -207,17 +214,88 @@ public class QuestManager : MonoBehaviour
             ("Sorry, I give up", GiveUp));
     }
 
+    /// <summary>Hints cost a correct answer to a practice question from the imported lectures (free if none).</summary>
+    void OfferHint(Npc npc)
+    {
+        if (!QuestionPool.HasQuestions) { GiveHint(npc); return; }
+        dialogue.Show(npc.DisplayName, "Oh, I think I saw something! Answer my question and I'll tell you what I know.",
+            ("OK, ask me!", () => AskForHint(npc, active)),
+            ("Maybe later", null));
+    }
+
+    async void AskForHint(Npc npc, Active q)
+    {
+        asking = npc;
+        npc.BeginTalk(player.transform);
+        bool wasEnabled = player.enabled;
+        player.enabled = false;   // stand still while answering
+        QuestionResult result;
+        try
+        {
+            result = await QuestionPrompt.AskAsync($"Answer correctly to get {npc.DisplayName}'s hint", "Get hint");
+        }
+        finally
+        {
+            asking = null;
+            if (player != null && wasEnabled) player.enabled = true;
+        }
+        if (this == null || active != q || npc == null) return;
+        if (result == QuestionResult.Cancelled)
+        {
+            npc.EndTalk();
+            hud.Toast($"No hint yet. Talk to {npc.DisplayName} again when you're ready.");
+            return;
+        }
+        GiveHint(npc);
+    }
+
+    static readonly float[] SearchRadius = { 50f, 30f, 12f };
+
     void GiveHint(Npc npc)
     {
         var q = active;
-        int level = q.Hints.Count;
-        Vector3 anchor = q.Offer.Kind == Kind.Delivery && q.Recipient != null ? q.Recipient.transform.position : q.HintAnchor;
+        talkingTo = npc;
+        npc.BeginTalk(player.transform);
+        int level = Mathf.Min(q.Hints.Count, SearchRadius.Length - 1);
+        bool delivery = q.Offer.Kind == Kind.Delivery && q.Recipient != null;
+        Vector3 anchor = delivery ? q.Recipient.transform.position : q.HintAnchor;
+
+        // Hint 2 points at one building you can see from far away: it gets a floating "?".
+        CityColorizer.Building? landmark = null;
+        if (!delivery && level == 1)
+        {
+            landmark = CityColorizer.NearestBuilding(anchor);
+            if (landmark.HasValue)
+            {
+                if (q.Beacon != null) Destroy(q.Beacon);
+                q.Beacon = QuestTargets.MakeBeacon(landmark.Value.Bounds, anchor);
+            }
+        }
+
         string noun = QuestTemplates.Noun(q.Offer.Kind, q.Offer.Dog, q.Offer.Coat, q.Offer.Item);
-        string hint = QuestTemplates.Hint(q.Offer.Kind, level, noun, q.Recipient?.DisplayName, anchor, npc.transform.position);
-        q.Hints.Add($"{npc.DisplayName}: {hint}");
+        string hint = QuestTemplates.Hint(q.Offer.Kind, level, noun, q.Recipient?.DisplayName, anchor, npc.transform.position, landmark);
+        q.Hints.Add(hint);
         q.Hinters.Remove(npc);
         npc.SetIcon(Npc.Icon.None);
+        SetSearchArea(q, anchor, SearchRadius[level], delivery ? q.Recipient.transform : null);
         dialogue.Show(npc.DisplayName, hint, ("Thanks!", null));
+    }
+
+    /// <summary>Draws the search circle on the maps. The target is inside it but not at the centre.</summary>
+    void SetSearchArea(Active q, Vector3 target, float radius, Transform follow)
+    {
+        if (q.SearchArea != null) MapMarkers.Remove(q.SearchArea);
+        Vector2 offset = Random.insideUnitCircle * radius * 0.6f;
+        q.SearchArea = new FastTravelPoint
+        {
+            Name = "Search here",
+            Glyph = "?",
+            Color = SearchColor,
+            Radius = radius,
+            Position = follow != null ? target : target + new Vector3(offset.x, 0f, offset.y),
+            Follow = follow,   // deliveries: the circle moves with the person you're looking for
+        };
+        MapMarkers.Add(q.SearchArea);
     }
 
     // ------------------------------------------------------------------ quest flow
@@ -307,6 +385,9 @@ public class QuestManager : MonoBehaviour
             q.ReadyToTurnIn = true;
             q.Giver.SetIcon(Npc.Icon.TurnIn);
             if (q.Trail != null) Destroy(q.Trail);
+            if (q.Beacon != null) Destroy(q.Beacon);
+            if (q.SearchArea != null) { MapMarkers.Remove(q.SearchArea); q.SearchArea = null; }
+            foreach (var h in q.Hinters) h.SetIcon(Npc.Icon.None);
             string what = q.Offer.Kind == Kind.LostPet ? $"You found {q.Offer.PetName}!"
                 : q.Offer.Kind == Kind.Pages ? "You found all the pages!" : $"You found the {q.Offer.Item}!";
             hud.Toast($"{what} Take {(q.Offer.Kind == Kind.Pages ? "them" : "it")} back to {q.Giver.DisplayName}.");
@@ -369,6 +450,8 @@ public class QuestManager : MonoBehaviour
             Destroy(t.gameObject);
         }
         if (q.Trail != null) Destroy(q.Trail);
+        if (q.Beacon != null) Destroy(q.Beacon);
+        if (q.SearchArea != null) MapMarkers.Remove(q.SearchArea);
         foreach (var h in q.Hinters) h.SetIcon(Npc.Icon.None);
         q.Giver.SetIcon(Npc.Icon.None);
         if (q.Recipient != null) q.Recipient.SetIcon(Npc.Icon.None);
@@ -393,8 +476,20 @@ public class QuestManager : MonoBehaviour
 
         string body = objective;
         if (!q.ReadyToTurnIn)
-            body += q.Hints.Count == 0 ? "\nAsk people with a blue ? for hints." : "";
-        foreach (var h in q.Hints) body += "\n• " + h;
+        {
+            if (q.SearchArea != null && PlayerPosition.HasValue)
+            {
+                Vector3 me = PlayerPosition.Value;
+                Vector3 centre = q.SearchArea.Follow != null ? q.SearchArea.Follow.position : q.SearchArea.Position;
+                float d = Vector3.Distance(new Vector3(me.x, 0f, me.z), new Vector3(centre.x, 0f, centre.z));
+                body += d <= q.SearchArea.Radius
+                    ? "\n<color=#5CD9FF><b>You're in the search area. Look around!</b></color>"
+                    : $"\n<color=#5CD9FF><b>Search area: {CityArea.DescribeDirection(me, centre, "you")}</b></color>";
+            }
+            if (q.Hinters.Count > 0)
+                body += q.Hints.Count == 0 ? "\nAsk people with a blue ? for hints (also on your map)." : $"\n{q.Hinters.Count} more {(q.Hinters.Count == 1 ? "person has" : "people have")} a hint (blue ?).";
+            if (q.Hints.Count > 0) body += "\n• " + q.Hints[q.Hints.Count - 1];
+        }
         hud.SetTracker(q.Title, body);
     }
 
@@ -405,14 +500,14 @@ public class QuestManager : MonoBehaviour
         Vector3? fallback = null;
         for (int i = 0; i < 120; i++)
         {
-            Vector3? p = SnapToNavMesh(CityArea.RandomPoint());
+            Vector3? p = CityNav.RandomPoint(1);
             if (!p.HasValue) continue;
             float d = Vector3.Distance(p.Value, from);
-            if (d < 60f || d > 180f) continue;
+            if (d < 40f || d > 120f) continue;
             fallback ??= p;
             if (NearBuilding(p.Value, 7f)) return p.Value;   // tucked in beside a building
         }
-        return fallback ?? SnapToNavMesh(from + Vector3.forward * 60f) ?? from;
+        return fallback ?? SnapToNavMesh(from + Vector3.forward * 50f) ?? from;
     }
 
     static bool NearBuilding(Vector3 p, float within)
@@ -422,10 +517,5 @@ public class QuestManager : MonoBehaviour
         return false;
     }
 
-    static Vector3? SnapToNavMesh(Vector3 p)
-    {
-        if (NavMesh.SamplePosition(new Vector3(p.x, 0.5f, p.z), out var hit, 3f, NavMesh.AllAreas) && CityArea.Contains(hit.position))
-            return hit.position;
-        return null;
-    }
+    static Vector3? SnapToNavMesh(Vector3 p) => CityNav.Snap(p);
 }
