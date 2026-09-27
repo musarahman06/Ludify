@@ -43,6 +43,9 @@ public class VehicleInteraction : MonoBehaviour
             return;
         }
 
+        // Player hidden but not in a car = riding the paper-route bike (or another mode): no car switching.
+        if (!player.activeInHierarchy) { nearestCar = null; return; }
+
         nearestCar = FindNearestCar();
         if (interact && nearestCar != null) Enter(nearestCar);
     }

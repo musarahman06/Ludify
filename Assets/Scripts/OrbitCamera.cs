@@ -35,6 +35,9 @@ public class OrbitCamera : MonoBehaviour
     public float chaseSpeed = 3f;
 
     private Rigidbody targetBody;
+    private bool chaseTarget;
+    private Vector3 lastTargetPosition;
+    private Vector3 targetVelocity;
     private float lastLookInputTime = -999f;
     private Vector3 smoothedPivot;
     private Vector3 horizontalVelocity;
@@ -47,6 +50,10 @@ public class OrbitCamera : MonoBehaviour
     {
         target = newTarget;
         targetBody = newTarget ? newTarget.GetComponent<Rigidbody>() : null;
+        // Vehicles without a Rigidbody (e.g. the bike) also get the chase camera.
+        chaseTarget = targetBody != null || (newTarget != null && newTarget.GetComponent<CharacterController>() != null
+                                             && newTarget.GetComponent<PlayerController>() == null);
+        lastTargetPosition = newTarget ? newTarget.position : Vector3.zero;
         distance = Mathf.Clamp(newDistance, minDistance, maxDistance);
     }
 
@@ -57,8 +64,11 @@ public class OrbitCamera : MonoBehaviour
         HandleInput();
 
         // Vehicles: after a moment without look input, swing round behind the direction of travel.
-        if (targetBody != null && Time.time - lastLookInputTime > chaseDelay
-            && Vector3.Dot(targetBody.linearVelocity, target.forward) > 2f)
+        if (Time.deltaTime > 0f) targetVelocity = (target.position - lastTargetPosition) / Time.deltaTime;
+        lastTargetPosition = target.position;
+        Vector3 vehicleVelocity = targetBody != null ? targetBody.linearVelocity : targetVelocity;
+        if (chaseTarget && Time.time - lastLookInputTime > chaseDelay
+            && Vector3.Dot(vehicleVelocity, target.forward) > 2f)
         {
             float heading = Mathf.Atan2(target.forward.x, target.forward.z) * Mathf.Rad2Deg;
             yaw = Mathf.LerpAngle(yaw, heading, 1f - Mathf.Exp(-chaseSpeed * Time.deltaTime));

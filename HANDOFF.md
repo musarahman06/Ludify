@@ -202,6 +202,47 @@ ChromeOS device to test on). The runtime file picker relies on desktop file acce
 
 ---
 
+## 2026-09-27: therishonsingh (suburb + farm jobs / minigames)
+
+Built on Musa's City Life quest pattern, but as a separate module in `Assets/Scripts/Jobs/`. **None of Musa's or Ben's
+files were edited**; it only uses their public APIs (`NpcFactory`, `Npc`, `DialogueBox`, `CityHud.Toast`,
+`PlayerProgress.AddQuestReward`, `MapMarkers`, `QuestionPrompt`/`QuestionPool`, `UiKit`, `CityArea.DescribeDirection`).
+It installs itself at runtime once City Life is up (`JobsBootstrap`); there are no scene edits.
+
+**Done**
+- Flow, same as city quests: yellow **!** giver (also on the maps) → accept → own tracker (progress bar, timer,
+  "Next: north-west of you, about 40 m") → talk to the giver mid-job (blue **?**) for **one help, gated by a practice
+  question** (free with no lecture) → green **!** → coins + 1 star. One job at a time, independent of city quests. **E** to talk or act.
+- Suburbs:
+  - **Paperboy Pete, newspaper route by bike** (35 coins, +10 if done in 150 s). `BikeController` is arcade physics on a
+    CharacterController, with a pedalling rider copy of the player; E throws a paper at a glowing mailbox within 10 m.
+    Help: exact markers + 30 s.
+  - **Mrs. Green, lawn mowing** (30). Push the mower over the tall grass to 95%. Help: turbo blade.
+- Farm:
+  - **Farmer Joe, harvest** 12 ripe crop rows (basket of 6 → crate), 35 coins. Crops are hidden by renderer and restored on cleanup.
+    Help: exact markers.
+  - **Rosa, raking leaves** 40 clusters (bag of 12 → compost bin), 30 coins. Help: leaf blower.
+  - **Gardener Sam, planting**: 6 plots, plant → fill can at well → water → grows 25 s → harvest, 40 coins. Help: fertiliser.
+- More questions in the suburb jobs (`JobManager.AskAsync`, skipped with no lecture): every paper-route household
+  asks one before you can deliver (the bonus clock pauses while it's open), and the mower stalls at 25/50/75%
+  until you answer one. The tracker counts questions answered.
+- **Lusher farm** (`FarmDressing`, built in memory by the scene processor; saved scene untouched):
+  - a 40x30 m barnyard west of the farmhouse with Quaternius's red **BigBarn**, two silos, a windmill, a chicken coop,
+    hay bales and a fence, plus a free garden corner for the planting job;
+  - every sparse crop plot is filled out into rows of its crop (green corn / golden wheat patchwork, ~1.8k plants);
+  - hedgerows, flower meadows (mostly yellow), an orchard, trees and rocks;
+  - `FarmGround` paints green grass with dirt only under the rows, on an in-memory copy of the TerrainData.
+- New assets: `Assets/Quaternius/FarmBuildings/` (CC0 "LowPoly Farm Buildings", OBJ+MTL, ~0.7 MB, see
+  `Assets/Quaternius/CREDITS.md`). OBJ materials are swapped for URP Lit in the MTL colours at runtime.
+- `OrbitCamera` chase cam now also works for Rigidbody-less vehicles (the bike). `VehicleInteraction` ignores X while on the bike.
+
+**Notes**
+- Job givers are made with `NpcFactory` (adds a NavMeshAgent). The west bank has no NavMesh, so Unity may log one
+  "not close enough to the NavMesh" warning per giver before `MakeStationary()` turns it off. It's harmless.
+- E is shared with Musa's talk key and my Q/E camera turn (existing conflict).
+
+---
+
 ## 2026-09-26: therishonsingh (CityMap performance + camera controls)
 
 Touches the gameplay area (scene, player camera, render settings). Gameplay teammate, please review.
