@@ -164,6 +164,7 @@ public class QuestTarget : MonoBehaviour
     {
         if (agent != null && NavMesh.SamplePosition(p, out var hit, 3f, NavMesh.AllAreas))
         {
+            transform.position = hit.position;   // enabling an agent off the NavMesh logs a warning
             agent.enabled = true;
             agent.Warp(hit.position);
         }
