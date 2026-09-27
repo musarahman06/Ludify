@@ -50,16 +50,16 @@ public static class CityArea
     }
 
     /// <summary>"north-east of here, about 70 m" from one point to another.</summary>
-    public static string DescribeDirection(Vector3 from, Vector3 to)
+    public static string DescribeDirection(Vector3 from, Vector3 to, string reference = "here")
     {
         Vector3 d = to - from;
         d.y = 0f;
         float dist = d.magnitude;
-        if (dist < 12f) return "really close to here";
+        if (dist < 12f) return $"really close to {reference}";
         string[] names = { "north", "north-east", "east", "south-east", "south", "south-west", "west", "north-west" };
         float angle = Mathf.Atan2(d.x, d.z) * Mathf.Rad2Deg;     // 0 = +Z = north on the map
         int index = Mathf.RoundToInt(((angle + 360f) % 360f) / 45f) % 8;
         int rounded = Mathf.Max(10, Mathf.RoundToInt(dist / 10f) * 10);
-        return $"{names[index]} of here, about {rounded} m away";
+        return $"{names[index]} of {reference}, about {rounded} m away";
     }
 }

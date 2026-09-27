@@ -13,30 +13,47 @@ public static class CityColorizer
 
     readonly struct Palette
     {
-        public readonly string Name;
+        public readonly string Name, Plain;
         public readonly float Hue, Saturation;
-        public Palette(string name, float hue, float saturation) { Name = name; Hue = hue; Saturation = saturation; }
+        public Palette(string name, float hue, float saturation, string plain) { Name = name; Hue = hue; Saturation = saturation; Plain = plain; }
     }
 
     static readonly Palette[] Palettes =
     {
-        new Palette("coral", 0.99f, 0.55f),
-        new Palette("terracotta", 0.04f, 0.62f),
-        new Palette("sand", 0.10f, 0.35f),
-        new Palette("butter yellow", 0.14f, 0.55f),
-        new Palette("sage green", 0.27f, 0.35f),
-        new Palette("mint", 0.42f, 0.42f),
-        new Palette("teal", 0.50f, 0.50f),
-        new Palette("sky blue", 0.57f, 0.50f),
-        new Palette("lavender", 0.74f, 0.38f),
-        new Palette("pink", 0.90f, 0.42f),
+        new Palette("coral", 0.99f, 0.55f, "pinky-orange"),
+        new Palette("terracotta", 0.04f, 0.62f, "brick red-orange"),
+        new Palette("sand", 0.10f, 0.35f, "light tan"),
+        new Palette("butter yellow", 0.14f, 0.55f, "soft yellow"),
+        new Palette("sage green", 0.27f, 0.35f, "soft grey-green"),
+        new Palette("mint", 0.42f, 0.42f, "pale green"),
+        new Palette("teal", 0.50f, 0.50f, "blue-green"),
+        new Palette("sky blue", 0.57f, 0.50f, "light blue"),
+        new Palette("lavender", 0.74f, 0.38f, "light purple"),
+        new Palette("pink", 0.90f, 0.42f, "pink"),
     };
 
     public readonly struct Building
     {
         public readonly Bounds Bounds;
         public readonly string ColorName;
-        public Building(Bounds bounds, string colorName) { Bounds = bounds; ColorName = colorName; }
+        /// <summary>Everyday wording for the color, e.g. "light tan" for sand.</summary>
+        public readonly string PlainColor;
+        /// <summary>The color as it looks on screen (for colored hint text).</summary>
+        public readonly Color Swatch;
+        public Building(Bounds bounds, string colorName, string plainColor, Color swatch)
+        {
+            Bounds = bounds; ColorName = colorName; PlainColor = plainColor; Swatch = swatch;
+        }
+
+        /// <summary>"sand (light tan)" with the name in its own color, for TMP rich text.</summary>
+        public string RichName
+        {
+            get
+            {
+                string name = $"<b><color=#{ColorUtility.ToHtmlStringRGB(Swatch)}>{ColorName}</color></b>";
+                return PlainColor == ColorName ? name : $"{name} ({PlainColor})";
+            }
+        }
     }
 
     /// <summary>Every recolored building with its color name (for hints).</summary>
@@ -83,20 +100,24 @@ public static class CityColorizer
                         if (mats[i] != null) mats[i] = Recolored(mats[i], palette, textureCache, materialCache);
                     r.sharedMaterials = mats;
                 }
-                Buildings.Add(new Building(bounds, Palettes[palette].Name));
+                var pal = Palettes[palette];
+                Buildings.Add(new Building(bounds, pal.Name, pal.Plain, Color.HSVToRGB(pal.Hue, Mathf.Min(1f, pal.Saturation + 0.15f), 0.95f)));
             }
         }
     }
 
     /// <summary>Name of the colored building nearest to a point (null if none within 40 m).</summary>
-    public static string NearestBuildingColor(Vector3 p)
+    public static string NearestBuildingColor(Vector3 p) => NearestBuilding(p)?.ColorName;
+
+    /// <summary>The colored building nearest to a point (null if none within 40 m).</summary>
+    public static Building? NearestBuilding(Vector3 p)
     {
-        string best = null;
+        Building? best = null;
         float bestDist = 40f * 40f;
         foreach (var b in Buildings)
         {
             float d = b.Bounds.SqrDistance(new Vector3(p.x, b.Bounds.center.y, p.z));
-            if (d < bestDist) { bestDist = d; best = b.ColorName; }
+            if (d < bestDist) { bestDist = d; best = b; }
         }
         return best;
     }

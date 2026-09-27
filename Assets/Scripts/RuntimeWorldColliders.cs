@@ -96,12 +96,17 @@ public static class RuntimeWorldColliders
             for (int i = 0; i < models.Length; i++) models[i] = grid.GetChild(i);
             foreach (var model in models)
             {
-                if (model.GetComponent<CarController>() != null) { count++; continue; }
-                if (CarController.MakeDriveable(model) != null) count++;
+                var car = model.GetComponent<CarController>();
+                if (car == null) car = CarController.MakeDriveable(model);
+                if (car == null) continue;
+                count++;
+                if (car.GetComponent<FallGuard>() == null) car.gameObject.AddComponent<FallGuard>();
             }
         }
 
         var player = Object.FindAnyObjectByType<PlayerController>();
+        // Falling through the ground sends the player back to spawn.
+        if (player != null && player.GetComponent<FallGuard>() == null) player.gameObject.AddComponent<FallGuard>();
         var cam = Object.FindAnyObjectByType<OrbitCamera>();
         if (count > 0 && player != null && cam != null)
         {

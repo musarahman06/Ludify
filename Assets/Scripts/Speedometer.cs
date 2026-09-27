@@ -6,7 +6,7 @@ using UnityEngine;
 /// </summary>
 public static class Speedometer
 {
-    const float MaxMph = 200f;
+    const float MaxMph = 240f;
     const float StartAngle = -135f;
     const float Sweep = 270f;
 

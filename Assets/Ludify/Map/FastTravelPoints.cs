@@ -17,6 +17,8 @@ namespace Ludify.Map
         public string Glyph;
         /// <summary>If set, the point moves with this object (see <see cref="MapMarkers"/>).</summary>
         public Transform Follow;
+        /// <summary>If above 0, the maps also draw a translucent circle of this radius (metres), e.g. a quest search area.</summary>
+        public float Radius;
 
         public string IconText => string.IsNullOrEmpty(Glyph) ? Name.Substring(0, 1) : Glyph;
     }

@@ -18,6 +18,7 @@ namespace Ludify.Map
         RectTransform _player, _icons;
         readonly List<(FastTravelPoint Point, RectTransform Icon)> _pointIcons = new List<(FastTravelPoint, RectTransform)>();
         readonly List<(FastTravelPoint Point, RectTransform Icon)> _markerIcons = new List<(FastTravelPoint, RectTransform)>();
+        readonly List<(FastTravelPoint Point, RectTransform Circle)> _areas = new List<(FastTravelPoint, RectTransform)>();
 
         public static MinimapView Create(MapSystem map, Transform canvas)
         {
@@ -57,12 +58,28 @@ namespace Ludify.Map
                                   new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(24, 24));
 
             UiKit.Stretch(UiKit.Image("Border", transform, new Color(1, 1, 1, 0.9f), UiKit.RingSprite).rectTransform);
+            AddCompass();
 
             TextMeshProUGUI hint = UiKit.Text("Hint", transform, "Map  [M]", 18);
-            UiKit.Place(hint.rectTransform, new Vector2(0.5f, 1f), new Vector2(0, 26), new Vector2(Size, 24));
+            UiKit.Place(hint.rectTransform, new Vector2(0.5f, 1f), new Vector2(0, 40), new Vector2(Size, 24)); // above the N
             hint.fontStyle = FontStyles.Bold;
             hint.outlineWidth = 0.2f;
             hint.outlineColor = Color.black;
+        }
+
+        /// <summary>N / E / S / W on the rim. The minimap is always north-up (+Z), so these never move.</summary>
+        void AddCompass()
+        {
+            float r = Size / 2 - Border / 2;
+            foreach (var (letter, dir) in new[] { ("N", Vector2.up), ("E", Vector2.right), ("S", Vector2.down), ("W", Vector2.left) })
+            {
+                Image badge = UiKit.Image("Compass" + letter, transform, new Color(0.1f, 0.12f, 0.18f, 0.95f), UiKit.CircleSprite);
+                UiKit.Place(badge.rectTransform, new Vector2(0.5f, 0.5f), dir * r, new Vector2(26, 26));
+                TextMeshProUGUI text = UiKit.Text("Letter", badge.transform, letter, 16, TextAlignmentOptions.Center,
+                                                  letter == "N" ? new Color(1f, 0.45f, 0.4f) : Color.white);
+                text.fontStyle = FontStyles.Bold;
+                UiKit.Stretch(text.rectTransform);
+            }
         }
 
         /// <summary>Coloured dot with the point's first letter.</summary>
@@ -83,9 +100,15 @@ namespace Ludify.Map
         {
             foreach (var (_, icon) in _markerIcons)
                 if (icon != null) Destroy(icon.gameObject);
+            foreach (var (_, circle) in _areas)
+                if (circle != null) Destroy(circle.gameObject);
             _markerIcons.Clear();
+            _areas.Clear();
             foreach (FastTravelPoint point in MapMarkers.All)
+            {
+                if (point.Radius > 0) _areas.Add((point, AreaCircle(point, _icons)));
                 _markerIcons.Add((point, PointIcon(point, _icons, 20, 15)));
+            }
         }
 
         void LateUpdate()
@@ -104,6 +127,26 @@ namespace Ludify.Map
             float maxRadius = inner / 2 - 12;
             PlaceIcons(_pointIcons, focus.position, inner, maxRadius);
             PlaceIcons(_markerIcons, focus.position, inner, maxRadius);
+
+            // Area circles aren't pinned to the rim; the round mask clips whatever is off the minimap.
+            foreach (var (point, circle) in _areas)
+            {
+                circle.anchoredPosition = new Vector2(point.Position.x - focus.position.x, point.Position.z - focus.position.z)
+                                          / MetersAcross * inner;
+                float diameter = point.Radius * 2 / MetersAcross * inner;
+                circle.sizeDelta = new Vector2(diameter, diameter);
+            }
+        }
+
+        /// <summary>Translucent filled circle with an outline, behind the other icons (sized by the caller).</summary>
+        public static RectTransform AreaCircle(FastTravelPoint point, Transform parent)
+        {
+            Color c = point.Color;
+            Image fill = UiKit.Image(point.Name + " area", parent, new Color(c.r, c.g, c.b, 0.22f), UiKit.CircleSprite);
+            UiKit.Place(fill.rectTransform, new Vector2(0.5f, 0.5f), Vector2.zero, Vector2.one);
+            fill.rectTransform.SetAsFirstSibling();
+            UiKit.Stretch(UiKit.Image("Outline", fill.transform, new Color(c.r, c.g, c.b, 0.9f), UiKit.RingSprite).rectTransform);
+            return fill.rectTransform;
         }
 
         static void PlaceIcons(List<(FastTravelPoint Point, RectTransform Icon)> icons, Vector3 focus, float inner, float maxRadius)
