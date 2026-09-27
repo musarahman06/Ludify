@@ -27,7 +27,7 @@ namespace Ludify.Gallery
         List<ExhibitRecord> _records = new List<ExhibitRecord>();
         PlayerController _player;
         Pedestal _nearby, _busy;
-        InspectMode _inspect;
+        ExhibitViewer _inspect;
         TextMeshProUGUI _prompt;
         GameObject _promptBox;
         string _message;
@@ -63,7 +63,7 @@ namespace Ludify.Gallery
             GalleryArea.FixUpCityLife();
 
             BuildUi();
-            _inspect = gameObject.AddComponent<InspectMode>();
+            _inspect = gameObject.AddComponent<ExhibitViewer>();
             _inspect.Init(this);
             RestoreExhibits();
 
@@ -215,6 +215,30 @@ namespace Ludify.Gallery
                 Show("Couldn't save the exhibit: " + e.Message);
                 Debug.LogException(e);
             }
+            finally { _busy = null; }
+        }
+
+        /// <summary>Re-runs Gemini on the exhibit's image (1 call) to add per-part details, then rebuilds it.</summary>
+        public async void RefreshDetails(Pedestal pedestal)
+        {
+            if (pedestal?.Record == null || _busy != null) return;
+            string image = ExhibitStore.ImagePath(pedestal.Record.ImageFile);
+            if (image == null) { Show("The original image is missing, so details can't be refreshed."); return; }
+            _busy = pedestal;
+            bool wasViewing = _inspect.IsActive;
+            if (wasViewing) _inspect.End();
+            Show("Asking Gemini for part details…", float.PositiveInfinity);
+            try
+            {
+                SceneModel model = await new ImageModelGenerator().GenerateAsync(image, null, forceRegenerate: true);
+                if (this == null || pedestal == null) return;
+                pedestal.Record.Model = model;
+                ExhibitStore.Save(_records);
+                pedestal.SetExhibit(pedestal.Record, ExhibitStore.LoadImage(pedestal.Record.ImageFile));
+                Show($"Updated \"{model.Title}\".");
+                if (wasViewing) _inspect.Begin(pedestal);
+            }
+            catch (ImportException e) { Show(e.Message, MessageSeconds * 1.5f); }
             finally { _busy = null; }
         }
 

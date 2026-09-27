@@ -25,10 +25,125 @@ namespace Ludify.Import
             bool isMolecule = parts.All(p => p.Kind == "atom");
             if (isMolecule) return;
 
-            bool isCircuit = parts.Any(p => System.Array.IndexOf(PartKinds.Circuit, p.Kind) >= 0);
+            // Geometry with measurements: the coordinates *are* the shape, so keep them exactly.
+            if ((model.Links ?? new List<SceneLink>()).Any(l => l.Kind == "dimension")) return;
+
+            bool isCircuit = parts.Any(p => System.Array.IndexOf(PartKinds.Circuit, p.Kind) >= 0 && p.Kind != "node");
             Stretch(parts, isCircuit);
             if (isCircuit) SpringLayout(model);
+            else if (parts.Any(p => p.Kind == "gear")) MeshGears(model);
             else PushApart(parts);
+
+            if (parts.Any(p => p.Kind == "bar")) LineUpBars(parts);
+            if (parts.Any(p => p.Kind == "shell")) ContainInShell(parts);
+            ScaleSpace(model);
+        }
+
+        /// <summary>Bar charts: bars stand on the floor in one evenly spaced row, in their original order.</summary>
+        static void LineUpBars(List<ScenePart> parts)
+        {
+            var bars = parts.Where(p => p.Kind == "bar").OrderBy(p => p.X).ToList();
+            for (int i = 0; i < bars.Count; i++)
+            {
+                bars[i].X = bars.Count == 1 ? 5f : 1f + 8f * i / (bars.Count - 1);
+                bars[i].Y = 0;
+                bars[i].Z = 5;
+                bars[i].Size = Mathf.Min(bars[i].Size, 6f / Mathf.Max(bars.Count, 1));
+            }
+        }
+
+        /// <summary>
+        /// Solar systems: real proportions would make planets invisible specks, so size bodies relative
+        /// to the widest orbit, and keep each moon's orbit outside its planet.
+        /// </summary>
+        static void ScaleSpace(SceneModel model)
+        {
+            List<ScenePart> parts = model.Parts;
+            ScenePart star = parts.FirstOrDefault(p => p.Kind == "star");
+            if (star == null) return;
+            float widest = parts.Where(p => p.Kind == "planet")
+                .Select(p => Vector2.Distance(new Vector2(p.X, p.Z), new Vector2(star.X, star.Z))).DefaultIfEmpty(4f).Max();
+
+            // Evenly spaced orbits in the planets' original order (like a classroom diagram), moons moving with their planet.
+            var planets = parts.Where(p => p.Kind == "planet")
+                .OrderBy(p => Vector2.Distance(new Vector2(p.X, p.Z), new Vector2(star.X, star.Z))).ToList();
+            var moonsOf = (model.Links ?? new List<SceneLink>()).Where(l => l.Kind == "orbit")
+                .Select(l => (moon: parts.FirstOrDefault(p => p.Id == l.From && p.Kind == "moon"), host: l.To))
+                .Where(x => x.moon != null).ToList();
+            for (int i = 0; i < planets.Count; i++)
+            {
+                ScenePart pl = planets[i];
+                Vector2 d = new Vector2(pl.X - star.X, pl.Z - star.Z);
+                if (d.sqrMagnitude < 1e-4f) d = Vector2.right;
+                Vector2 target = d.normalized * widest * (0.35f + 0.65f * (i + 1) / planets.Count);
+                Vector2 shift = new Vector2(star.X, star.Z) + target - new Vector2(pl.X, pl.Z);
+                pl.X += shift.x; pl.Z += shift.y;
+                foreach (var (moon, host) in moonsOf)
+                    if (host == pl.Id) { moon.X += shift.x; moon.Z += shift.y; }
+            }
+            star.Size = Mathf.Max(star.Size, widest * 0.28f);
+            foreach (ScenePart p in parts)
+            {
+                if (p.Kind == "planet") p.Size = Mathf.Clamp(p.Size, widest * 0.09f, widest * 0.22f);
+                if (p.Kind == "moon") p.Size = Mathf.Clamp(p.Size, widest * 0.04f, widest * 0.07f);
+            }
+            var byId = parts.ToDictionary(p => p.Id);
+            foreach (SceneLink l in (model.Links ?? new List<SceneLink>()).Where(l => l.Kind == "orbit"))
+            {
+                if (!byId.TryGetValue(l.From, out var moon) || !byId.TryGetValue(l.To, out var host) || moon.Kind != "moon") continue;
+                Vector2 d = new Vector2(moon.X - host.X, moon.Z - host.Z);
+                if (d.sqrMagnitude < 1e-4f) d = Vector2.up;
+                float need = host.Size * 0.5f + moon.Size + 0.3f;
+                if (d.magnitude < need) { d = d.normalized * need; moon.X = host.X + d.x; moon.Z = host.Z + d.y; moon.Y = host.Y; }
+            }
+        }
+
+        /// <summary>Cells: grow and centre the membrane so every organelle sits inside it.</summary>
+        static void ContainInShell(List<ScenePart> parts)
+        {
+            ScenePart shell = parts.Where(p => p.Kind == "shell").OrderByDescending(p => p.Size).First();
+            var inside = parts.Where(p => p != shell && p.Kind != "label").ToList();
+            if (inside.Count == 0) return;
+            Vector3 centre = Vector3.zero;
+            foreach (ScenePart p in inside) centre += new Vector3(p.X, p.Y, p.Z);
+            centre /= inside.Count;
+            float reach = inside.Max(p => Vector3.Distance(new Vector3(p.X, p.Y, p.Z), centre) + p.Size * 0.5f);
+            const float maxRadius = 6f;
+            if (reach > maxRadius)
+            {
+                // Too spread out for one membrane: pull the organelles in toward the middle instead.
+                float f = (maxRadius - 0.4f) / reach;
+                foreach (ScenePart p in inside)
+                {
+                    p.X = centre.x + (p.X - centre.x) * f;
+                    p.Y = centre.y + (p.Y - centre.y) * f;
+                    p.Z = centre.z + (p.Z - centre.z) * f;
+                }
+                reach = maxRadius;
+            }
+            shell.X = centre.x; shell.Y = centre.y; shell.Z = centre.z;
+            shell.Size = Mathf.Max(shell.Size, reach * 2f + 0.8f);
+        }
+
+        /// <summary>Moves meshing gears so their teeth just touch (radius ≈ half the size).</summary>
+        static void MeshGears(SceneModel model)
+        {
+            var byId = model.Parts.ToDictionary(p => p.Id);
+            var placed = new HashSet<string>();
+            foreach (SceneLink l in (model.Links ?? new List<SceneLink>()).Where(l => l.Kind == "mesh"))
+            {
+                if (!byId.TryGetValue(l.From, out var a) || !byId.TryGetValue(l.To, out var b)) continue;
+                if (placed.Contains(b.Id) && !placed.Contains(a.Id)) (a, b) = (b, a);
+                placed.Add(a.Id);
+                if (placed.Contains(b.Id)) continue;
+                Vector2 d = new Vector2(b.X - a.X, b.Y - a.Y);          // gears face the viewer: they sit in the x/y plane
+                if (d.sqrMagnitude < 1e-4f) d = Vector2.right;
+                d = d.normalized * (a.Size + b.Size) * 0.5f * 0.95f;
+                b.X = Mathf.Clamp(a.X + d.x, Min, Max);
+                b.Y = Mathf.Clamp(a.Y + d.y, 0f, Max);
+                b.Z = a.Z;
+                placed.Add(b.Id);
+            }
         }
 
         /// <summary>Scale positions so the used area fills the layout box (per axis, keeping 0.5 margins).</summary>
@@ -100,7 +215,7 @@ namespace Ludify.Import
 
         static void PushApart(List<ScenePart> parts)
         {
-            foreach (ScenePart p in parts) p.Size = Mathf.Min(p.Size, 2.5f);
+            foreach (ScenePart p in parts) if (p.Kind != "shell") p.Size = Mathf.Min(p.Size, 2.5f);
             for (int iter = 0; iter < 100; iter++)
             {
                 bool moved = false;
@@ -108,7 +223,8 @@ namespace Ludify.Import
                 for (int j = i + 1; j < parts.Count; j++)
                 {
                     ScenePart a = parts[i], b = parts[j];
-                    if (a.Kind == "label" || b.Kind == "label") continue;
+                    // Labels float freely; shells (cell membranes) are meant to contain the other parts.
+                    if (a.Kind == "label" || b.Kind == "label" || a.Kind == "shell" || b.Kind == "shell") continue;
                     Vector3 d = new Vector3(b.X - a.X, b.Y - a.Y, b.Z - a.Z);
                     float need = (a.Size + b.Size) * 0.55f + 0.6f;
                     float dist = d.magnitude;

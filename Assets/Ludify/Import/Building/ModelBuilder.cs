@@ -12,43 +12,116 @@ namespace Ludify.Import
     /// </summary>
     public static class ModelBuilder
     {
-        public const float DefaultFitSize = 2.6f;
+        public const float DefaultFitSize = 3.2f;
         const float MinLabelHeight = 0.12f, MaxLabelHeight = 0.3f;   // metres, so labels stay readable at any model scale
 
+        /// <summary>
+        /// Builds the exhibit. Circuits become a two-sided printed circuit board with a live simulation;
+        /// everything else is built from parts + straight links. The root carries an <see cref="ExhibitInfo"/>.
+        /// </summary>
         public static GameObject Build(SceneModel model, float fitSize = DefaultFitSize)
         {
             var root = new GameObject("Exhibit: " + model.Title);
             var content = new GameObject("Content").transform;
             content.SetParent(root.transform, false);
 
+            var ids = new HashSet<string>();
+            for (int i = 0; i < model.Parts.Count; i++)
+                if (string.IsNullOrEmpty(model.Parts[i].Id) || !ids.Add(model.Parts[i].Id)) { model.Parts[i].Id = "part" + i; ids.Add(model.Parts[i].Id); }
+
             LayoutRelaxer.Relax(model);
             AutoSizeComponents(model.Parts);
+            SetBarHeights(model.Parts);
 
-            var parts = new Dictionary<string, PartLibrary.BuiltPart>();
-            foreach (ScenePart p in model.Parts)
+            var info = root.AddComponent<ExhibitInfo>();
+            info.Model = model;
+            info.Content = content;
+            info.IsCircuit = CircuitNetlist.IsCircuit(model);
+
+            Dictionary<string, PartLibrary.BuiltPart> parts;
+            PcbBuilder.Result pcb = null;
+            if (info.IsCircuit)
             {
-                if (string.IsNullOrEmpty(p.Id) || parts.ContainsKey(p.Id)) p.Id = "part" + parts.Count;
-                parts[p.Id] = PartLibrary.Build(p, content);
+                pcb = PcbBuilder.Build(model, content);
+                parts = pcb.Parts;
+            }
+            else
+            {
+                parts = new Dictionary<string, PartLibrary.BuiltPart>();
+                foreach (ScenePart p in model.Parts) parts[p.Id] = PartLibrary.Build(p, content);
+                var orbits = new List<(PartLibrary.BuiltPart body, PartLibrary.BuiltPart centre)>();
+                var meshes = new List<SceneLink>();
+                foreach (SceneLink link in model.Links ?? new List<SceneLink>())
+                {
+                    if (link.From == null || link.To == null) continue;
+                    if (!parts.TryGetValue(link.From, out var a) || !parts.TryGetValue(link.To, out var b) || a == b) continue;
+                    string kind = (link.Kind ?? "").ToLowerInvariant();
+                    if (kind == "orbit") orbits.Add((a, b));
+                    else if (kind == "mesh") meshes.Add(link);
+                    else LinkBuilder.Build(link, a, b, content);
+                }
+
+                // Moving systems: orbits and gear trains animate (so they don't use the exploded view).
+                if (orbits.Count > 0)
+                {
+                    float innermost = orbits.Min(o => Vector3.Distance(o.body.Root.localPosition, o.centre.Root.localPosition));
+                    foreach (var (body, centre) in orbits) Orbiter.Build(body, centre, content, innermost);
+                }
+                if (meshes.Count > 0) GearTrain.Build(content, parts, meshes);
+                info.Animated = orbits.Count > 0 || meshes.Count > 0;
             }
 
-            var wires = new List<List<Vector3>>();
-            foreach (SceneLink link in model.Links ?? new List<SceneLink>())
-            {
-                if (link.From == null || link.To == null) continue;
-                if (!parts.TryGetValue(link.From, out var a) || !parts.TryGetValue(link.To, out var b) || a == b) continue;
-                List<Vector3> path = LinkBuilder.Build(link, a, b, content);
-                if (path != null) wires.Add(path);
-            }
-
-            // Current only flows if there's a power source.
-            if (wires.Count > 0 && model.Parts.Any(p => (p.Kind ?? "").ToLowerInvariant() == "battery"))
-            {
-                var flow = content.gameObject.AddComponent<CurrentFlow>();
-                foreach (var w in wires) flow.AddWire(w);
-            }
+            foreach (PartLibrary.BuiltPart part in parts.Values) info.Parts.Add(ExhibitPart.Attach(part.Root, part.Data));
+            SetExplodeOffsets(info);
 
             Fit(root.transform, content, fitSize);
+            foreach (ExhibitPart part in info.Parts) part.FitCollider();
+
+            if (pcb != null)
+            {
+                info.Sim = root.AddComponent<CircuitSim>();
+                info.Sim.Init(pcb);
+            }
             return root;
+        }
+
+        /// <summary>
+        /// Exploded view: circuit parts lift straight up off the board on their leads; other exhibits
+        /// spread out from their centre.
+        /// </summary>
+        /// <summary>Bar heights proportional to their values (tallest = 6 layout units).</summary>
+        static void SetBarHeights(List<ScenePart> parts)
+        {
+            var bars = parts.Where(p => p.Kind == "bar").ToList();
+            if (bars.Count == 0) return;
+            float Value(ScenePart p)
+            {
+                string v = p.Value ?? "";
+                var number = new string(v.Where(ch => char.IsDigit(ch) || ch == '.' || ch == '-').ToArray());
+                return float.TryParse(number, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out float f) ? f : 1f;
+            }
+            float max = Mathf.Max(bars.Max(Value), 1e-3f);
+            foreach (ScenePart b in bars) b.Height = Mathf.Max(0.15f, 6f * Mathf.Max(Value(b), 0) / max);
+        }
+
+        static void SetExplodeOffsets(ExhibitInfo info)
+        {
+            if (info.Parts.Count == 0) return;
+            if (info.IsCircuit)
+            {
+                foreach (ExhibitPart p in info.Parts)
+                    if (p.Data.Kind != "node" && p.Data.Kind != "ground")
+                        p.ExplodeOffset = Vector3.up * (0.9f + 0.6f * p.transform.localScale.x);
+                return;
+            }
+            Vector3 centre = Vector3.zero;
+            foreach (ExhibitPart p in info.Parts) centre += p.BasePosition;
+            centre /= info.Parts.Count;
+            foreach (ExhibitPart p in info.Parts)
+            {
+                Vector3 away = p.BasePosition - centre;
+                p.ExplodeOffset = away.sqrMagnitude > 1e-4f ? away * 0.6f : Vector3.up * 0.8f;
+            }
         }
 
         /// <summary>A framed picture standing on the pedestal, for images that aren't buildable as 3D.</summary>
@@ -91,7 +164,7 @@ namespace Ludify.Import
                 float nearest = float.MaxValue;
                 foreach (ScenePart q in parts)
                     if (q != p) nearest = Mathf.Min(nearest, Vector3.Distance(new Vector3(p.X, p.Y, p.Z), new Vector3(q.X, q.Y, q.Z)));
-                if (nearest < float.MaxValue) p.Size = Mathf.Clamp(Mathf.Max(p.Size, nearest * 0.45f), 0.2f, 4f);
+                if (nearest < float.MaxValue) p.Size = Mathf.Clamp(Mathf.Max(p.Size, nearest * 0.6f), 0.2f, 4f);
             }
         }
 
@@ -100,7 +173,7 @@ namespace Ludify.Import
             Bounds? bounds = null;
             foreach (Renderer r in content.GetComponentsInChildren<Renderer>())
             {
-                if (r.GetComponent<TMP_Text>() != null) continue;
+                if (r.GetComponent<TMP_Text>() != null || r.name == "Electron") continue;
                 Bounds b = r.bounds;
                 if (bounds == null) bounds = b; else { Bounds x = bounds.Value; x.Encapsulate(b); bounds = x; }
             }

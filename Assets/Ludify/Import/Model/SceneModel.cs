@@ -42,6 +42,11 @@ namespace Ludify.Import
         public string Label;
         /// <summary>Kind-specific value: "9V", "220Ω", element symbol "O", meter type "A"/"V"…</summary>
         public string Value;
+        /// <summary>One sentence on what this part does, shown when hovering it in the viewer.</summary>
+        public string Info;
+
+        /// <summary>Bar height in layout units, computed from the bar values when building (not saved).</summary>
+        [Newtonsoft.Json.JsonIgnore] public float Height;
     }
 
     [Serializable]
@@ -56,10 +61,19 @@ namespace Ludify.Import
 
     public static class PartKinds
     {
-        public static readonly string[] Generic = { "box", "sphere", "cylinder", "cone", "arrow", "label", "panel" };
+        public static readonly string[] Generic = { "box", "sphere", "cylinder", "cone", "pyramid", "prism", "arrow", "label", "panel" };
         public static readonly string[] Circuit = { "battery", "resistor", "bulb", "switch", "capacitor", "led", "meter", "ground", "node" };
         public static readonly string[] Chemistry = { "atom" };
-        public static readonly string[] LinkKinds = { "wire", "bond", "double_bond", "arrow", "line" };
+        public static readonly string[] Space = { "star", "planet", "moon" };
+        public static readonly string[] Biology = { "shell" };
+        public static readonly string[] Mechanics = { "gear" };
+        public static readonly string[] Data = { "bar" };
+        /// <summary>
+        /// wire = circuit connection; bond/double_bond = chemistry; arrow = flow or direction (animated);
+        /// line = relationship; orbit = from = orbiting body, to = what it orbits (animated);
+        /// mesh = two gears whose teeth mesh (animated); dimension = measurement line (label = the measurement).
+        /// </summary>
+        public static readonly string[] LinkKinds = { "wire", "bond", "double_bond", "arrow", "line", "orbit", "mesh", "dimension" };
 
         public static string[] All
         {
@@ -68,6 +82,10 @@ namespace Ludify.Import
                 var all = new List<string>(Generic);
                 all.AddRange(Circuit);
                 all.AddRange(Chemistry);
+                all.AddRange(Space);
+                all.AddRange(Biology);
+                all.AddRange(Mechanics);
+                all.AddRange(Data);
                 return all.ToArray();
             }
         }

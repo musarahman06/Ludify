@@ -5,6 +5,27 @@ Keep each entry short: what changed, what's half-done, what's next, anything tha
 
 ---
 
+## 2026-09-27 (2): BenJPanackal (hands-on 3D exhibits)
+
+**Done** (gallery only; no teammate files or scenes touched)
+- **Hands-on viewer:** press **I** at a filled pedestal. The exhibit floats up with its own camera:
+  - drag to spin it any way, scroll to zoom, right-drag to pan;
+  - F flips it, X explodes it, R resets, double-click zooms to a part, Esc goes back;
+  - hover any part for what it is and does.
+- **Circuits** become a two-sided circuit board (parts on top, copper and solder underneath) running a real simulation:
+  bulbs light, current dots flow, clicking the switch opens or closes the circuit, and tooltips show voltage and current.
+- **New 3D kits:**
+  - solar systems with animated orbits;
+  - cells with see-through membranes;
+  - meshing gears that turn at the right ratios;
+  - 3D bar charts;
+  - geometry solids with measurement lines;
+  - flow arrows with moving particles (cycles, food chains).
+- Circuit boards hover tilted toward you on their pedestal; other exhibits slowly turn.
+- Still 1 Gemini call per image. Old exhibits: use **Add details** in the viewer (1 call) to get per-part explanations.
+
+---
+
 ## 2026-09-26 (5): musarahman (City Life: NPCs, little quests, coins & stars, colorful buildings)
 
 Everything installs itself at runtime in CityMap (`CityLifeBootstrap`). **No scene or teammate files edited.**

@@ -22,9 +22,14 @@ namespace Ludify.Import
 
             if (_base == null)
             {
-                var probe = GameObject.CreatePrimitive(PrimitiveType.Cube);
-                _base = probe.GetComponent<Renderer>().sharedMaterial;
-                Kill(probe);
+                // A saved material keeps the emission shader variant in builds (unused variants get stripped).
+                _base = Resources.Load<Material>("LudifyExhibitOpaque");
+                if (_base == null)
+                {
+                    var probe = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                    _base = probe.GetComponent<Renderer>().sharedMaterial;
+                    Kill(probe);
+                }
             }
             var m = new Material(_base) { name = "Exhibit " + ColorUtility.ToHtmlStringRGB(color), color = color };
             if (m.HasProperty("_BaseColor")) m.SetColor("_BaseColor", color);
@@ -36,6 +41,100 @@ namespace Ludify.Import
             }
             Materials[(color, glow)] = m;
             return m;
+        }
+
+        static Material _transparentBase;
+        static readonly Dictionary<Color, Material> Transparents = new Dictionary<Color, Material>();
+
+        /// <summary>See-through material (e.g. a cell membrane) visible from inside and outside. Alpha comes from the colour.</summary>
+        public static Material Glass(Color color)
+        {
+            if (Transparents.TryGetValue(color, out Material cached) && cached != null) return cached;
+            if (_transparentBase == null) _transparentBase = Resources.Load<Material>("LudifyExhibitTransparent");
+            Material m = _transparentBase != null ? new Material(_transparentBase) : new Material(Mat(color));
+            m.name = "Exhibit glass " + ColorUtility.ToHtmlStringRGBA(color);
+            m.color = color;
+            if (m.HasProperty("_BaseColor")) m.SetColor("_BaseColor", color);
+            Transparents[color] = m;
+            return m;
+        }
+
+        /// <summary>A mesh object without a collider.</summary>
+        public static Transform MeshObject(string name, Mesh mesh, Transform parent, Vector3 position, Quaternion rotation, Vector3 scale, Material material)
+        {
+            var go = new GameObject(name, typeof(MeshFilter), typeof(MeshRenderer));
+            go.GetComponent<MeshFilter>().sharedMesh = mesh;
+            go.GetComponent<MeshRenderer>().sharedMaterial = material;
+            Transform t = go.transform;
+            t.SetParent(parent, false);
+            t.localPosition = position;
+            t.localRotation = rotation;
+            t.localScale = scale;
+            return t;
+        }
+
+        static Mesh _pyramid, _prism;
+        static readonly Dictionary<int, Mesh> Rings = new Dictionary<int, Mesh>();
+
+        /// <summary>Square pyramid, base 1×1 at y = −0.5, apex at y = +0.5.</summary>
+        public static Mesh PyramidMesh => _pyramid ?? (_pyramid = Faceted("Pyramid",
+            new[] { new Vector3(-.5f, -.5f, -.5f), new Vector3(.5f, -.5f, -.5f), new Vector3(.5f, -.5f, .5f), new Vector3(-.5f, -.5f, .5f), new Vector3(0, .5f, 0) },
+            new[] { 0, 4, 1, 1, 4, 2, 2, 4, 3, 3, 4, 0, 0, 1, 2, 0, 2, 3 }));
+
+        /// <summary>Triangular prism along Z (length 1), triangle base 1 wide, 1 tall.</summary>
+        public static Mesh PrismMesh => _prism ?? (_prism = Faceted("Prism",
+            new[] { new Vector3(-.5f, -.5f, -.5f), new Vector3(.5f, -.5f, -.5f), new Vector3(0, .5f, -.5f),
+                    new Vector3(-.5f, -.5f, .5f), new Vector3(.5f, -.5f, .5f), new Vector3(0, .5f, .5f) },
+            new[] { 0, 2, 1, 3, 4, 5, 0, 1, 4, 0, 4, 3, 1, 2, 5, 1, 5, 4, 2, 0, 3, 2, 3, 5 }));
+
+        /// <summary>Flat ring (annulus) in the XZ plane, outer radius 1, visible from both sides.</summary>
+        public static Mesh RingMesh(float innerRatio)
+        {
+            int key = Mathf.RoundToInt(innerRatio * 1000);
+            if (Rings.TryGetValue(key, out Mesh cached) && cached != null) return cached;
+            const int segments = 96;
+            var verts = new List<Vector3>();
+            var tris = new List<int>();
+            for (int i = 0; i <= segments; i++)
+            {
+                float a = i * Mathf.PI * 2 / segments;
+                var dir = new Vector3(Mathf.Cos(a), 0, Mathf.Sin(a));
+                verts.Add(dir * innerRatio);
+                verts.Add(dir);
+            }
+            for (int i = 0; i < segments; i++)
+            {
+                int v = i * 2;
+                tris.AddRange(new[] { v, v + 1, v + 3, v, v + 3, v + 2 });   // top
+                tris.AddRange(new[] { v, v + 3, v + 1, v, v + 2, v + 3 });   // bottom
+            }
+            var mesh = new Mesh { name = "Ring" };
+            mesh.SetVertices(verts);
+            mesh.SetTriangles(tris, 0);
+            mesh.RecalculateNormals();
+            return Rings[key] = mesh;
+        }
+
+        /// <summary>Flat-shaded mesh from shared corner positions (each triangle gets its own vertices).</summary>
+        static Mesh Faceted(string name, Vector3[] corners, int[] triangles)
+        {
+            // Convex shapes: make every face point away from the centre, whatever order it was listed in.
+            Vector3 centre = Vector3.zero;
+            foreach (Vector3 c in corners) centre += c;
+            centre /= corners.Length;
+            var verts = new Vector3[triangles.Length];
+            var tris = new int[triangles.Length];
+            for (int i = 0; i < triangles.Length; i += 3)
+            {
+                Vector3 a = corners[triangles[i]], b = corners[triangles[i + 1]], c = corners[triangles[i + 2]];
+                bool outward = Vector3.Dot(Vector3.Cross(b - a, c - a), (a + b + c) / 3 - centre) < 0;   // Unity: clockwise = front
+                verts[i] = a; verts[i + 1] = outward ? b : c; verts[i + 2] = outward ? c : b;
+                tris[i] = i; tris[i + 1] = i + 1; tris[i + 2] = i + 2;
+            }
+            var mesh = new Mesh { name = name, vertices = verts, triangles = tris };
+            mesh.RecalculateNormals();
+            mesh.RecalculateBounds();
+            return mesh;
         }
 
         /// <summary>A primitive without a collider, positioned in its parent's local space.</summary>

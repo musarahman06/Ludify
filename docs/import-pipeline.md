@@ -89,6 +89,40 @@ SceneModel { title, subject, explanation, displayMode, parts[{id, kind, x,y,z (0
 
 ---
 
+## Hands-on exhibits (gallery viewer + 3D kits)
+
+**Viewer** (`Gallery/ExhibitViewer.cs`): press **I** at a filled pedestal and the exhibit floats up with its own camera.
+The game is paused via `ModalGuard`.
+- **Drag** spins it any way (trackball), **scroll** zooms, **right-drag** pans.
+- **F** flips it, **X** explodes it, **R** resets the view, **double-click** zooms to a part, **Esc/I** exits.
+- Hovering shows `ExhibitPart.Describe` (name, value, Gemini's per-part `info`, live readings).
+
+**Kits** (all built from primitives and procedural meshes in `Import/Building/`, one Gemini call per image):
+
+| Image | Built as | Moving parts |
+|---|---|---|
+| Circuit | `PcbBuilder`: two-sided PCB, parts on top, copper traces + solder underneath | `CircuitSolver` (DC nodal analysis) + `CircuitSim`: real V/I; bulbs light by power; click switches |
+| Molecule | atoms (CPK colours) + bonds | exploded view |
+| Solar system | star, planets (ringed), moons, orbit rings | `Orbiter`: Kepler-speed orbits |
+| Cell | see-through `shell` membrane containing organelles | exploded view |
+| Gears | toothed `gear` wheels, `mesh` links | `GearTrain`: opposite directions, tooth ratios |
+| Bar chart | `bar` heights proportional to values | – |
+| Geometry | pyramid/prism/box… + `dimension` measurement lines | – |
+| Processes (cycles, food chains) | shapes + `arrow` links | particles flow along arrows |
+
+`LayoutRelaxer` fixes AI coordinates per kit:
+- circuits: spring layout;
+- gears: teeth touch;
+- cells: organelles stay inside the membrane;
+- space: visible bodies, evenly spaced orbits;
+- bars: one row;
+- geometry: kept exact.
+
+Materials come from `Import/Resources/LudifyExhibit{Opaque,Transparent}.mat`, so the emission and transparency
+shader variants survive in builds. Bump `ImageModelGenerator.PipelineVersion` whenever the prompt or schema changes.
+
+---
+
 ## Key constraint: this is a *runtime* import
 
 Teachers use the **built game**, not the Unity Editor. Unity's normal import system

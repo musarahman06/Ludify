@@ -20,7 +20,7 @@ namespace Ludify.Import
     public sealed class ImageModelGenerator
     {
         /// <summary>Bump when the prompt/schema changes so cached models regenerate.</summary>
-        const string PipelineVersion = "scene-v1";
+        const string PipelineVersion = "scene-v4";
         const int MaxParts = 60, MaxLinks = 120;
         public const long MaxImageBytes = 12 * 1024 * 1024;
 
@@ -39,10 +39,24 @@ namespace Ludify.Import
             "use rotationY = 90 for parts on vertical sides of the diagram. Connect every connection in the diagram with a \"wire\" link; " +
             "use node parts for junctions where 3+ wires meet.\n" +
             "- Molecules: atom (value = element symbol like \"O\"), with realistic 3D geometry and bond or double_bond links.\n" +
-            "- Other diagrams (cells, water cycle, food chains, anatomy, processes, geography): use box, sphere, cylinder, cone, panel " +
-            "(a flat sign; value = short text), arrow and label parts arranged in 3D, with arrow or line links for flows/relationships. " +
-            "Pick sensible colors (CSS names or #RRGGBB).\n" +
+            "- Space (solar system, moons, orbits): star, planet (value \"ringed\" for Saturn-like rings), moon. Put the star in the middle " +
+            "and planets at increasing distances along x (same y and z); size reflects relative size. Add an \"orbit\" link from each " +
+            "planet to the star and from each moon to its planet; the game animates the orbits.\n" +
+            "- Cells and organisms (animal/plant cell, bacterium): one shell part for the membrane or cell wall (size 7-9, centred), with " +
+            "organelles inside it as sphere (nucleus, vacuole), cylinder (mitochondria, chloroplasts), box or panel parts, each labelled and coloured.\n" +
+            "- Gears and mechanisms: gear (value = number of teeth, size ∝ teeth) arranged in the x/y plane facing the viewer, with a " +
+            "\"mesh\" link between each pair of gears whose teeth touch; the game spins them at the correct ratios. Use arrow parts for forces.\n" +
+            "- Charts and data (bar charts, graphs of amounts): bar parts (value = the number, label = the category) in a row along x " +
+            "at y = 0, plus label parts for the axis titles.\n" +
+            "- Geometry and math: one large solid (box, sphere, cylinder, cone, pyramid or prism; size 6-8, centred at x = 5, z = 5, " +
+            "resting on y = 0 so its centre y = size / 2) with node parts placed exactly on its real corners, apex or base centre, " +
+            "and \"dimension\" links between nodes whose label is the measurement (e.g. \"5 cm\").\n" +
+            "- Other diagrams (water cycle, food chains, anatomy, processes, geography): use box, sphere, cylinder, cone, panel " +
+            "(a flat sign; value = short text), arrow and label parts arranged in 3D, with arrow links for flows (animated) " +
+            "and line links for relationships. Pick sensible colors (CSS names or #RRGGBB).\n" +
             "Give parts short labels taken from the image (e.g. \"R1\", \"Nucleus\"). Size is about 1 for a typical part (0.3–4).\n" +
+            "For every part, info = one short sentence for students explaining what that part is or does in this image.\n" +
+            "For switches, set value to \"open\" or \"closed\" as drawn.\n" +
             "If the image is mainly text, a photo of a real scene, or otherwise not a buildable diagram, set displayMode to \"image\" " +
             "and return no parts.\n" +
             "Also return: title (short), subject (e.g. Physics), and explanation (2-3 sentences teaching students what it shows).";
@@ -167,9 +181,10 @@ namespace Ludify.Import
                     ["x"] = num.DeepClone(), ["y"] = num.DeepClone(), ["z"] = num.DeepClone(),
                     ["size"] = num.DeepClone(), ["rotationY"] = num.DeepClone(),
                     ["color"] = str.DeepClone(), ["label"] = str.DeepClone(), ["value"] = str.DeepClone(),
+                    ["info"] = str.DeepClone(),
                 },
-                ["required"] = new JArray("id", "kind", "x", "y", "z"),
-                ["propertyOrdering"] = new JArray("id", "kind", "x", "y", "z", "size", "rotationY", "color", "label", "value"),
+                ["required"] = new JArray("id", "kind", "x", "y", "z", "info"),
+                ["propertyOrdering"] = new JArray("id", "kind", "x", "y", "z", "size", "rotationY", "color", "label", "value", "info"),
             };
             var link = new JObject
             {

@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 using static Ludify.Import.ModelKit;
 
@@ -25,13 +26,14 @@ namespace Ludify.Import
             public float SurfaceRadius;
         }
 
-        public static BuiltPart Build(ScenePart p, Transform parent)
+        /// <param name="floatingLabel">Add a camera-facing name label above the part (off for PCBs, which print labels on the board).</param>
+        public static BuiltPart Build(ScenePart p, Transform parent, bool floatingLabel = true)
         {
             var root = new GameObject($"{p.Kind}:{p.Id}").transform;
             root.SetParent(parent, false);
             root.localPosition = new Vector3(p.X, p.Y, p.Z);
             root.localRotation = Quaternion.Euler(0, p.RotationY, 0);
-            root.localScale = Vector3.one * Mathf.Clamp(p.Size <= 0 ? 1 : p.Size, 0.2f, 5f);
+            root.localScale = Vector3.one * Mathf.Clamp(p.Size <= 0 ? 1 : p.Size, 0.2f, p.Kind == "shell" ? 14f : 5f);
 
             var built = new BuiltPart { Data = p, Root = root, Terminals = new[] { Vector3.zero }, SurfaceRadius = 0.3f };
             Color c = ParseColor(p.Color, DefaultColor(p.Kind));
@@ -49,6 +51,15 @@ namespace Ludify.Import
                 case "ground": Ground(root); built.Terminals = new[] { new Vector3(0, 0.45f, 0) }; break;
                 case "node": Prim(PrimitiveType.Sphere, root, Vector3.zero, Vector3.one * 0.18f, Dark); built.SurfaceRadius = 0.05f; break;
                 case "atom": built.SurfaceRadius = Atom(root, p.Value, p.Color); break;
+                case "star": Star(root, c); built.SurfaceRadius = 0.5f; break;
+                case "planet": Planet(root, c, p.Value); built.SurfaceRadius = 0.5f; break;
+                case "moon": Prim(PrimitiveType.Sphere, root, Vector3.zero, Vector3.one, c); built.SurfaceRadius = 0.5f; break;
+                case "shell": Prim(PrimitiveType.Sphere, root, Vector3.zero, Vector3.one, c).GetComponent<Renderer>().sharedMaterial =
+                                  ModelKit.Glass(new Color(c.r, c.g, c.b, 0.22f)); built.SurfaceRadius = 0.5f; break;
+                case "gear": Gear(root, c, p.Value); built.SurfaceRadius = 0.5f; break;
+                case "bar": Bar(root, c, p.Height > 0 ? p.Height : 1f); break;
+                case "pyramid": MeshObject("Pyramid", PyramidMesh, root, Vector3.zero, Quaternion.identity, Vector3.one, Mat(c)); break;
+                case "prism": MeshObject("Prism", PrismMesh, root, Vector3.zero, Quaternion.identity, Vector3.one, Mat(c)); break;
                 case "sphere": Prim(PrimitiveType.Sphere, root, Vector3.zero, Vector3.one, c); built.SurfaceRadius = 0.5f; break;
                 case "cylinder": Prim(PrimitiveType.Cylinder, root, Vector3.zero, new Vector3(1, 0.5f, 1), c); break;
                 case "cone": Cone(root, Vector3.zero, Quaternion.identity, Vector3.one, c); break;
@@ -59,9 +70,13 @@ namespace Ludify.Import
             }
 
             string text = LabelText(p, kind);
-            if (!string.IsNullOrEmpty(text))
+            if (floatingLabel && !string.IsNullOrEmpty(text))
             {
-                float above = kind == "label" ? 0f : kind == "atom" ? built.SurfaceRadius + 0.35f : 0.85f;
+                float above = kind == "label" ? 0f
+                    : kind == "atom" ? built.SurfaceRadius + 0.35f
+                    : kind == "bar" ? (p.Height > 0 ? p.Height : 1f) + 0.35f
+                    : kind == "shell" ? 0.62f
+                    : 0.85f;
                 Label(root, text, new Vector3(0, above, 0), kind == "label" ? 0.45f : 0.28f);
             }
             return built;
@@ -69,11 +84,15 @@ namespace Ludify.Import
 
         static void TwoTerminal(BuiltPart b) => b.Terminals = new[] { new Vector3(-0.5f, 0, 0), new Vector3(0.5f, 0, 0) };
 
-        static string LabelText(ScenePart p, string kind)
+        internal static string LabelText(ScenePart p, string kind)
         {
             string label = p.Label?.Trim();
             string value = p.Value?.Trim();
             if (kind == "atom") return string.IsNullOrEmpty(label) ? value : label;
+            // Space bodies: just the name (their value is a style hint like "ringed").
+            if (kind == "planet" || kind == "star" || kind == "moon")
+                return !string.IsNullOrEmpty(label) ? label
+                     : string.IsNullOrEmpty(p.Id) ? null : char.ToUpperInvariant(p.Id[0]) + p.Id.Substring(1);
             if (kind == "panel") return label;
             if (string.IsNullOrEmpty(value) || kind == "meter" || value == label) return label;
             return string.IsNullOrEmpty(label) ? value : $"{label}  {value}";
@@ -87,6 +106,12 @@ namespace Ludify.Import
                 case "led": return new Color(1f, 0.15f, 0.1f);
                 case "arrow": return new Color(1f, 0.8f, 0.2f);
                 case "panel": return new Color(0.9f, 0.9f, 0.85f);
+                case "star": return new Color(1f, 0.78f, 0.25f);
+                case "planet": return new Color(0.35f, 0.55f, 0.9f);
+                case "moon": return new Color(0.7f, 0.7f, 0.72f);
+                case "shell": return new Color(0.55f, 0.85f, 0.65f);
+                case "gear": return new Color(0.7f, 0.72f, 0.76f);
+                case "bar": return new Color(0.3f, 0.6f, 0.95f);
                 default: return new Color(0.55f, 0.7f, 0.95f);
             }
         }
@@ -150,7 +175,7 @@ namespace Ludify.Import
             Prim(PrimitiveType.Cylinder, r, new Vector3(0.3f, 0.02f, 0), new Vector3(0.12f, 0.04f, 0.12f), Lead);
             // Lever hinged at the left contact, lifted open.
             Prim(PrimitiveType.Cube, r, new Vector3(0.0f, 0.16f, 0), new Vector3(0.65f, 0.05f, 0.08f), new Color(0.85f, 0.2f, 0.2f),
-                 Quaternion.Euler(0, 0, 25));
+                 Quaternion.Euler(0, 0, 25), name: "Lever");
         }
 
         static void Capacitor(Transform r)
@@ -166,7 +191,7 @@ namespace Ludify.Import
             Rod(r, new Vector3(-0.5f, 0, 0), new Vector3(-0.08f, 0, 0), 0.04f, Lead);
             Rod(r, new Vector3(0.08f, 0, 0), new Vector3(0.5f, 0, 0), 0.04f, Lead);
             Prim(PrimitiveType.Cylinder, r, new Vector3(0, 0.05f, 0), new Vector3(0.26f, 0.08f, 0.26f), c, emission: c * 1.2f);
-            Prim(PrimitiveType.Sphere, r, new Vector3(0, 0.16f, 0), Vector3.one * 0.26f, c, emission: c * 1.6f);
+            Prim(PrimitiveType.Sphere, r, new Vector3(0, 0.16f, 0), Vector3.one * 0.26f, c, emission: c * 1.6f, name: "Glass");
         }
 
         static void Meter(Transform r, string value)
@@ -205,6 +230,55 @@ namespace Ludify.Import
             Prim(PrimitiveType.Sphere, r, Vector3.zero, Vector3.one * radius * 2, color);
             return radius;
         }
+
+        // ---- Space ----
+
+        static void Star(Transform r, Color c) =>
+            Prim(PrimitiveType.Sphere, r, Vector3.zero, Vector3.one, c, emission: c * 2.2f, name: "Glass");
+
+        static void Planet(Transform r, Color c, string value)
+        {
+            Prim(PrimitiveType.Sphere, r, Vector3.zero, Vector3.one, c);
+            if (!string.IsNullOrEmpty(value) && value.ToLowerInvariant().Contains("ring"))
+                MeshObject("Rings", RingMesh(0.62f), r, Vector3.zero, Quaternion.Euler(22, 0, 8), Vector3.one * 0.95f,
+                           ModelKit.Glass(new Color(0.9f, 0.8f, 0.6f, 0.7f)));
+        }
+
+        // ---- Mechanics ----
+
+        /// <summary>Toothed gear facing the viewer (axle along Z). Teeth count from the value (default 12).</summary>
+        static void Gear(Transform r, Color c, string value)
+        {
+            int teeth = GearTeeth(value);
+            var wheel = new GameObject("Wheel").transform;          // spun by GearTrain
+            wheel.SetParent(r, false);
+            Quaternion axleZ = Quaternion.Euler(90, 0, 0);
+            Prim(PrimitiveType.Cylinder, wheel, Vector3.zero, new Vector3(0.84f, 0.08f, 0.84f), c, axleZ);
+            float toothW = Mathf.Clamp(2.4f / teeth, 0.06f, 0.2f);
+            for (int i = 0; i < teeth; i++)
+            {
+                float a = i * 360f / teeth;
+                Quaternion rot = Quaternion.Euler(0, 0, a);
+                Prim(PrimitiveType.Cube, wheel, rot * new Vector3(0, 0.46f, 0), new Vector3(toothW, 0.14f, 0.16f), c, rot);
+            }
+            Prim(PrimitiveType.Cylinder, wheel, new Vector3(0, 0, -0.05f), new Vector3(0.22f, 0.1f, 0.22f), Dark, axleZ);   // hub
+            Prim(PrimitiveType.Cube, wheel, new Vector3(0, 0.25f, -0.09f), new Vector3(0.05f, 0.22f, 0.02f), new Color(0.9f, 0.3f, 0.2f)); // marker so rotation is visible
+        }
+
+        public static int GearTeeth(string value)
+        {
+            if (!string.IsNullOrEmpty(value))
+            {
+                string digits = new string(value.Where(char.IsDigit).ToArray());
+                if (int.TryParse(digits, out int n)) return Mathf.Clamp(n, 6, 48);
+            }
+            return 12;
+        }
+
+        // ---- Data ----
+
+        static void Bar(Transform r, Color c, float height) =>
+            Prim(PrimitiveType.Cube, r, new Vector3(0, height / 2, 0), new Vector3(0.8f, height, 0.8f), c);
 
         // ---- Generic ----
 

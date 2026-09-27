@@ -58,6 +58,14 @@ namespace Ludify.Gallery
             return name;
         }
 
+        /// <summary>Full path of a stored image, or null if it's gone.</summary>
+        public static string ImagePath(string fileName)
+        {
+            if (string.IsNullOrEmpty(fileName)) return null;
+            string path = Path.Combine(ImagesFolder, fileName);
+            return File.Exists(path) ? path : null;
+        }
+
         public static Texture2D LoadImage(string fileName)
         {
             if (string.IsNullOrEmpty(fileName)) return null;

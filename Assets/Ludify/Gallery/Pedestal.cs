@@ -26,7 +26,16 @@ namespace Ludify.Gallery
         public Transform Focus { get; private set; }
         public Vector3 Front => transform.position - transform.forward * (Width / 2 + 1.2f);
 
-        Transform _exhibit, _hologram, _thumbnail;
+        Transform _exhibit, _holder, _hologram, _thumbnail;
+
+        /// <summary>The built exhibit (null when empty).</summary>
+        public Transform Exhibit => _exhibit;
+        public ExhibitInfo Info => _exhibit != null ? _exhibit.GetComponent<ExhibitInfo>() : null;
+        /// <summary>Set by the viewer while it holds the exhibit, so the idle motion stops.</summary>
+        public bool InViewer;
+
+        const float SpinDegreesPerSecond = 8f;
+        const float CircuitTilt = 32f, CircuitLift = 1.1f;
         TextMeshPro _plaqueText, _holoText;
         string _status;
 
@@ -89,6 +98,15 @@ namespace Ludify.Gallery
 
         void Update()
         {
+            // Idle display: circuit boards hover tilted toward the viewer; other exhibits turn slowly.
+            if (_holder != null && !InViewer)
+            {
+                ExhibitInfo info = Info;
+                if (info != null && info.IsCircuit)
+                    _holder.localPosition = new Vector3(0, TopHeight + CircuitLift + Mathf.Sin(Time.time * 1.2f) * 0.05f, 0);
+                else
+                    _holder.localRotation = Quaternion.Euler(0, Time.time * SpinDegreesPerSecond, 0);
+            }
             if (_hologram == null || !_hologram.gameObject.activeSelf) return;
             _hologram.localRotation = Quaternion.Euler(0, Time.time * 40f, 0);
             _hologram.localPosition = new Vector3(0, TopHeight + 1.1f + Mathf.Sin(Time.time * 2f) * 0.08f, 0);
@@ -110,10 +128,19 @@ namespace Ludify.Gallery
             GameObject exhibit = model != null && model.IsModel
                 ? ModelBuilder.Build(model)
                 : ModelBuilder.BuildImagePanel(image, model?.Title ?? "Image");
+            _holder = new GameObject("Display").transform;
+            _holder.SetParent(transform, false);
+            _holder.localPosition = new Vector3(0, TopHeight, 0);
             _exhibit = exhibit.transform;
-            _exhibit.SetParent(transform, false);
-            _exhibit.localPosition = new Vector3(0, TopHeight, 0);
-            _exhibit.localRotation = Quaternion.identity;
+            _exhibit.SetParent(_holder, false);
+            _exhibit.localPosition = Vector3.zero;
+            ExhibitInfo built = exhibit.GetComponent<ExhibitInfo>();
+            if (built != null && built.IsCircuit)
+            {
+                // Tip the board toward the front (−Z), pivoting on its centre, so you see the top, not the edge.
+                _exhibit.localRotation = Quaternion.Euler(-CircuitTilt, 0, 0);
+                _holder.localPosition = new Vector3(0, TopHeight + CircuitLift, 0);
+            }
 
             _hologram.gameObject.SetActive(false);
             _plaqueText.text = $"<b>{Escape(model?.Title ?? "Image")}</b>\n<size=65%><i>{Escape(model?.Subject)}</i></size>\n<size=75%>{Escape(model?.Explanation)}</size>";
@@ -142,8 +169,11 @@ namespace Ludify.Gallery
 
         void ClearExhibitObject()
         {
-            if (_exhibit != null) Kill(_exhibit.gameObject);
+            if (_holder != null) Kill(_holder.gameObject);
+            else if (_exhibit != null) Kill(_exhibit.gameObject);
             _exhibit = null;
+            _holder = null;
+            InViewer = false;
         }
 
         static string Escape(string s) => string.IsNullOrEmpty(s) ? "" : s.Replace("<", "‹").Replace(">", "›");
