@@ -11,13 +11,13 @@ public class CarController : MonoBehaviour
     public float mass = 750f;
 
     [Header("Engine")]
-    public float enginePower = 420000f;     // watts at the rear wheels
-    public float maxDriveForce = 7000f;     // traction-limited launch force (N)
+    public float enginePower = 650000f;     // watts at the rear wheels
+    public float maxDriveForce = 9000f;     // traction-limited launch force (N)
     public float reverseMaxSpeed = 10f;     // m/s
-    public float topSpeed = 75f;            // m/s, used for steering
+    public float topSpeed = 95f;            // m/s, used for steering
 
     [Header("Gearbox (automatic)")]
-    public float[] gearTopSpeeds = { 16f, 27f, 38f, 50f, 63f, 77f };   // m/s at redline in each gear
+    public float[] gearTopSpeeds = { 20f, 34f, 48f, 64f, 81f, 99f };   // m/s at redline in each gear
     public float idleRpm = 950f;
     public float redlineRpm = 7400f;
     public float upshiftRpm = 7100f;
@@ -29,7 +29,7 @@ public class CarController : MonoBehaviour
     public float handbrakeTorque = 6000f;
 
     [Header("Aero")]
-    public float dragCoefficient = 0.9f;    // F = c * v^2
+    public float dragCoefficient = 0.75f;   // F = c * v^2
     public float downforceCoefficient = 1.4f;
 
     [Header("Steering")]
@@ -113,7 +113,12 @@ public class CarController : MonoBehaviour
     BoxCollider bodyCollider;
     WheelCollider frontLeft, frontRight, rearLeft, rearRight;
     Transform visFrontLeft, visFrontRight, visRearLeft, visRearRight;
-    Quaternion[] wheelVisualOffset = new Quaternion[4];
+    Quaternion[] wheelBaseLocalRot = new Quaternion[4];   // each visual wheel's rest rotation relative to the car
+    float[] wheelSpin = new float[4];                      // accumulated roll angle (degrees)
+
+    [Header("Wheel visuals")]
+    [Tooltip("Max visual roll per frame (degrees). Keeps fast wheels from strobing (wagon-wheel effect).")]
+    public float maxSpinPerFrame = 28f;
     float steer;
     bool initialized;
 
@@ -188,14 +193,9 @@ public class CarController : MonoBehaviour
         rearRight = CreateWheel("WC_RearRight", rr, wheelRadius, rearSideStiffness);
         frontLeft.ConfigureVehicleSubsteps(5f, 12, 15);
 
-        // Remember how each visual wheel is rotated relative to the collider's pose.
-        var wheels = new[] { frontLeft, frontRight, rearLeft, rearRight };
+        // Remember each visual wheel's rest rotation relative to the car; steer and roll are applied on top.
         var vis = new[] { fl, fr, rl, rr };
-        for (int i = 0; i < 4; i++)
-        {
-            wheels[i].GetWorldPose(out _, out var q);
-            wheelVisualOffset[i] = Quaternion.Inverse(q) * vis[i].rotation;
-        }
+        for (int i = 0; i < 4; i++) wheelBaseLocalRot[i] = Quaternion.Inverse(transform.rotation) * vis[i].rotation;
     }
 
     WheelCollider CreateWheel(string wheelName, Transform visual, float radius, float sideStiffness)
@@ -395,12 +395,19 @@ public class CarController : MonoBehaviour
 
     void SyncVisual(WheelCollider wc, Transform visual, int index)
     {
-        // GetWorldPose is in un-interpolated physics space; re-express it relative to the interpolated body so wheels don't jitter.
-        wc.GetWorldPose(out var pos, out var rot);
-        Quaternion invBody = Quaternion.Inverse(body.rotation);
-        Vector3 localPos = invBody * (pos - body.position);
-        Quaternion localRot = invBody * rot;
-        visual.SetPositionAndRotation(transform.TransformPoint(localPos), transform.rotation * localRot * wheelVisualOffset[index]);
+        // Position (suspension travel) from the collider. GetWorldPose is in un-interpolated physics space, so
+        // re-express it relative to the interpolated body so the wheels don't jitter against it.
+        wc.GetWorldPose(out var pos, out _);
+        Vector3 localPos = Quaternion.Inverse(body.rotation) * (pos - body.position);
+
+        // Roll the wheel from its own rpm, capped per frame so it reads as rolling at any speed instead of strobing.
+        float delta = wc.rpm * 6f * Time.deltaTime;   // rpm -> degrees this frame
+        wheelSpin[index] = Mathf.Repeat(wheelSpin[index] + Mathf.Clamp(delta, -maxSpinPerFrame, maxSpinPerFrame), 360f);
+
+        Quaternion local = Quaternion.Euler(0f, wc.steerAngle, 0f)
+                         * Quaternion.AngleAxis(wheelSpin[index], Vector3.right)
+                         * wheelBaseLocalRot[index];
+        visual.SetPositionAndRotation(transform.TransformPoint(localPos), transform.rotation * local);
     }
 
     static float WheelRadius(Transform wheel)

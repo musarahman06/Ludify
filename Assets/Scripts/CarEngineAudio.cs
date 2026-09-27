@@ -1,15 +1,26 @@
 using UnityEngine;
 
 /// <summary>
-/// Procedural supercharged V8 for <see cref="CarController"/>. No audio files: at startup it synthesises looping
-/// engine clips at a few rpm points (cross-plane firing order for the V8 burble) plus a supercharger whine,
-/// then crossfades and pitches them from the car's rpm and throttle. Works on every platform, including WebGL.
+/// V8 engine sound for <see cref="CarController"/>. Uses recorded V8 loops (on- and off-throttle, recorded at about
+/// 5,575 rpm; see Assets/Audio/CREDITS.md), crossfaded by throttle and pitched to the engine rpm. Above
+/// <see cref="pitchKneeRpm"/> the pitch rises only gently, so high revs sound like the mid-range rather than a
+/// screaming redline. If the recordings are missing it falls back to synthesised engine loops.
 /// </summary>
 [RequireComponent(typeof(CarController))]
 public class CarEngineAudio : MonoBehaviour
 {
     [Range(0f, 1f)] public float volume = 0.7f;
-    [Range(0f, 1f)] public float whineVolume = 0.22f;
+    [Tooltip("Supercharger whine on top of the engine. 0 = off.")]
+    [Range(0f, 1f)] public float whineVolume = 0f;
+    [Tooltip("Above this rpm the pitch rises much more slowly, so the top end sounds like the mid-range.")]
+    public float pitchKneeRpm = 4000f;
+    [Range(0f, 1f)] public float pitchAboveKnee = 0.3f;
+    [Tooltip("Lowest playback pitch for the recorded loops; stops idle sounding slurred when pitched far down.")]
+    public float minRecordedPitch = 0.42f;
+
+    const string OnThrottlePath = "EngineV8/V8_OnThrottle_5570rpm";
+    const string OffThrottlePath = "EngineV8/V8_OffThrottle_5581rpm";
+    const float RecordedRpm = 5575f;
 
     static readonly float[] LayerRpm = { 1000f, 3000f, 5600f };
     static AudioClip[] engineClips;
@@ -18,19 +29,36 @@ public class CarEngineAudio : MonoBehaviour
     const float WhinePerRpm = 0.45f;   // blower whine frequency (Hz) per engine rpm
 
     CarController car;
-    AudioSource[] layers;
+    AudioSource[] layers;          // synthesised fallback
+    AudioSource onThrottle, offThrottle;   // recorded
     AudioSource whine;
     float smoothedThrottle;
 
     void Start()
     {
         car = GetComponent<CarController>();
-        BuildClips();
+        var onClip = Resources.Load<AudioClip>(OnThrottlePath);
+        var offClip = Resources.Load<AudioClip>(OffThrottlePath);
 
-        layers = new AudioSource[LayerRpm.Length];
-        for (int i = 0; i < layers.Length; i++) layers[i] = CreateSource(engineClips[i]);
+        if (onClip != null && offClip != null)
+        {
+            onThrottle = CreateSource(onClip);
+            offThrottle = CreateSource(offClip);
+            // Start the two loops out of phase so the crossfade doesn't reveal identical pulses.
+            offThrottle.time = offClip.length * 0.5f;
+            whineClip = whineClip != null ? whineClip : SynthWhine(SampleRate());
+        }
+        else
+        {
+            Debug.LogWarning("[CarEngineAudio] Recorded V8 loops not found in Resources/EngineV8; using synthesised engine.");
+            BuildClips();
+            layers = new AudioSource[LayerRpm.Length];
+            for (int i = 0; i < layers.Length; i++) layers[i] = CreateSource(engineClips[i]);
+        }
         whine = CreateSource(whineClip);
     }
+
+    static int SampleRate() => AudioSettings.outputSampleRate > 0 ? AudioSettings.outputSampleRate : 44100;
 
     AudioSource CreateSource(AudioClip clip)
     {
@@ -46,7 +74,7 @@ public class CarEngineAudio : MonoBehaviour
 
     void Update()
     {
-        if (car == null || layers == null) return;
+        if (car == null || whine == null) return;
         float rpm = car.EngineRpm;
         bool running = rpm > 50f;
 
@@ -56,7 +84,23 @@ public class CarEngineAudio : MonoBehaviour
         // Fade out as the engine spins down after getting out.
         float running01 = Mathf.Clamp01(rpm / (car.idleRpm * 0.8f));
 
-        for (int i = 0; i < layers.Length; i++)
+        if (onThrottle != null)
+        {
+            // Recorded loops: crossfade on/off throttle with an equal-power curve, pitch to rpm.
+            float pitchRpm = rpm <= pitchKneeRpm ? rpm : pitchKneeRpm + (rpm - pitchKneeRpm) * pitchAboveKnee;
+            float pitch = Mathf.Clamp(pitchRpm / RecordedRpm, minRecordedPitch, 2f);
+            float rev = Mathf.Clamp01(rpm / car.redlineRpm);
+            float onGain = Mathf.Sin(smoothedThrottle * Mathf.PI * 0.5f);
+            float offGain = Mathf.Cos(smoothedThrottle * Mathf.PI * 0.5f);
+            onThrottle.pitch = offThrottle.pitch = pitch;
+            // Only a gentle rise in loudness with revs, so the top end matches the mid-range.
+            onThrottle.volume = volume * running01 * onGain * (0.8f + 0.2f * rev);
+            offThrottle.volume = volume * running01 * offGain * (0.55f + 0.15f * rev);
+            SetPlaying(onThrottle, running);
+            SetPlaying(offThrottle, running);
+        }
+
+        for (int i = 0; layers != null && i < layers.Length; i++)
         {
             var src = layers[i];
             float w = LayerWeight(rpm, i);
@@ -68,7 +112,7 @@ public class CarEngineAudio : MonoBehaviour
         float rev01 = Mathf.Clamp01(rpm / car.redlineRpm);
         whine.pitch = Mathf.Clamp(rpm * WhinePerRpm / WhineClipHz, 0.1f, 3f);
         whine.volume = whineVolume * running01 * rev01 * rev01 * (0.35f + 0.65f * smoothedThrottle);
-        SetPlaying(whine, running);
+        SetPlaying(whine, running && whineVolume > 0f);
     }
 
     static void SetPlaying(AudioSource src, bool play)
@@ -93,7 +137,7 @@ public class CarEngineAudio : MonoBehaviour
     static void BuildClips()
     {
         if (engineClips != null && engineClips[0] != null) return;
-        int sr = AudioSettings.outputSampleRate > 0 ? AudioSettings.outputSampleRate : 44100;
+        int sr = SampleRate();
         engineClips = new AudioClip[LayerRpm.Length];
         for (int i = 0; i < LayerRpm.Length; i++) engineClips[i] = SynthV8(LayerRpm[i], sr);
         whineClip = SynthWhine(sr);

@@ -143,7 +143,9 @@ Touches the gameplay area (scene, player camera, render settings). Gameplay team
   `CarController` (WheelColliders, RWD, aero drag + downforce, anti-roll, speed-sensitive steering, ~270 km/h),
   `VehicleInteraction` (enter/exit + hint), camera chases behind the car.
   Automatic 6-speed gearbox + rpm model, small analogue `Speedometer` (bottom right, IMGUI, no assets),
-  and `CarEngineAudio`: procedurally synthesised supercharged V8 (no audio files, WebGL-safe).
+  and `CarEngineAudio`: recorded V8 loops (`Assets/Audio/Resources/EngineV8/`, **CC-BY-SA 4.0, credit required**,
+  see `Assets/Audio/CREDITS.md`) crossfaded by throttle + pitched to rpm, plus a synthesised supercharger whine.
+  Cars are faster: ~650 kW, top speed ~210 mph; speedometer reads to 240 mph.
 - World colliders (buildings, barriers, stands, pit lane, trees, road props, track surface) are added automatically
   to the in-memory scene on Play/build by `Editor/WorldCollidersSceneProcessor.cs` → `RuntimeWorldColliders`.
   No scene edits. Cars are set up at runtime on scene load.
