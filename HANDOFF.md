@@ -5,6 +5,20 @@ Keep each entry short: what changed, what's half-done, what's next, anything tha
 
 ---
 
+## 2026-09-27 (6): musarahman (README)
+
+- Added `README.md`, covering:
+  - the pitch (Ludify (verb), "To forget the page and experience the lesson.", why Ludify, competitors, moat);
+  - every feature and the controls;
+  - how the code works (runtime-installed systems, import pipeline, questions API, image → 3D, gallery, City Life,
+    time trial, jobs/store, world/map/UI);
+  - project structure, setup, business model, roadmap, team and credits.
+- Screenshots are in `docs/images/`. The time-trial and circuit shots are cropped from the pitch deck; the others were
+  captured in-game.
+- **Teammates:** please fix anything about your area that's out of date as you change it.
+
+---
+
 ## 2026-09-27 (5): BenJPanackal (tip bar, menu button, sandier UI, Organize subjects redo)
 
 **Done** (no teammate files or scenes edited; the tip bar only reads your objects and public APIs)
