@@ -36,9 +36,11 @@ Full design: `docs/import-pipeline.md`. Teachers pick files at **runtime** (in t
   free keys automatically fall back to the model's own knowledge); call 2 writes multiple-choice
   questions as JSON. Results are cached by file hash in `persistentDataPath/QuestionBanks/`.
 - Gameplay uses `QuestionBankStore` + `QuestionDeck` only (see docs, "Questions API").
-- In-game: an **Import lecture** button at the top of the screen (every scene, installed by
-  `ImportButtonOverlay`; set `ImportButtonOverlay.Enabled = false` to hide). Gameplay can subscribe
-  to `ImportButtonOverlay.LessonImported`.
+- In-game: **Menu (top-left, or Esc) → Import files** (`ImportButtonOverlay.RequestImport()`; there's no
+  on-screen import button any more). Progress shows in the tip bar. Gameplay can subscribe to
+  `ImportButtonOverlay.LessonImported`.
+- **Tip bar** (`Assets/Ludify/Menu/TipBar.cs`) at the top of the screen tells the player what to do where they are
+  (racetrack, farm, suburbs, city, gallery, river, driving, bike). Add places/tips in `TipBar.ResolvePlaces`.
 - Test: menu **Ludify > Import**, or play `Assets/Ludify/Import/Scenes/ImportTest.unity`.
 
 **Built: minimap + question-gated fast travel** (`Assets/Ludify/Map/`, compiles into Assembly-CSharp so it

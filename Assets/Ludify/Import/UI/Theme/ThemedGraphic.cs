@@ -133,7 +133,7 @@ namespace Ludify.Import
 
             Color result;
             if (_original == null)
-                result = bg == null ? Color.white : lightBackground ? LudifyTheme.Palette.Text : Color.white;
+                result = bg == null ? Color.white : lightBackground ? LudifyTheme.Palette.Text : LudifyTheme.Palette.LightText;
             else
             {
                 Color o = _original.Value;

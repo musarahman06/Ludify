@@ -119,19 +119,35 @@ namespace Ludify.Menu
             return slider;
         }
 
-        /// <summary>A button that steps through options each click, showing the current one.</summary>
+        /// <summary>A button that steps through options each click, showing the current one (with a drawn chevron).</summary>
         public static Button Cycle(Transform parent, string[] options, int index, Action<int> onChange, Color? color = null)
         {
             int current = Mathf.Clamp(index, 0, options.Length - 1);
             Button b = null;
-            b = UiKit.Button("Cycle", parent, options[current] + "  ▸", 22, () =>
+            b = UiKit.Button("Cycle", parent, options[current], 22, () =>
             {
                 current = (current + 1) % options.Length;
-                UiKit.SetButtonLabel(b, options[current] + "  ▸");
+                UiKit.SetButtonLabel(b, options[current]);
                 onChange(current);
             }, color ?? UiKit.AccentColor);
+            Chevron(b.transform);
             Size(b, flex: 1);
             return b;
+        }
+
+        /// <summary>A small "›" drawn at a button's right edge (the UI font has no arrow glyphs).</summary>
+        public static void Chevron(Transform button, string icon = "chevron")
+        {
+            Image c = UiKit.Image("Chevron", button, LudifyTheme.Palette.LightText, ThemeArt.Icon(icon));
+            c.preserveAspect = true;
+            RectTransform rt = c.rectTransform;
+            rt.anchorMin = new Vector2(1, 0.5f);
+            rt.anchorMax = new Vector2(1, 0.5f);
+            rt.pivot = new Vector2(1, 0.5f);
+            rt.anchoredPosition = new Vector2(-12, 4);
+            rt.sizeDelta = new Vector2(22, 22);
+            var label = button.Find("Label") as RectTransform;
+            if (label != null) label.offsetMax = new Vector2(-38, label.offsetMax.y);
         }
 
         /// <summary>A keyboard key cap like [ Esc ].</summary>

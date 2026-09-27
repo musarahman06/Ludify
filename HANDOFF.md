@@ -5,6 +5,35 @@ Keep each entry short: what changed, what's half-done, what's next, anything tha
 
 ---
 
+## 2026-09-27 (5): BenJPanackal (tip bar, menu button, sandier UI, Organize subjects redo)
+
+**Done** (no teammate files or scenes edited; the tip bar only reads your objects and public APIs)
+- **The "Import lecture" button at the top of the screen is gone.** Import from **Menu → Import files**.
+  `ImportButtonOverlay.RequestImport()`, `LessonImported`, `IsBusy`, `StatusMessage`, `ImportFailed` and `Enabled`
+  are unchanged, so the time trial's import prompt still works.
+- **Tip bar** in its place (`Assets/Ludify/Menu/TipBar.cs`). It says what you can do where you are, rotating tips every
+  9 s; click it for the next one.
+  - Places: racetrack, farm, suburbs, city, art gallery, river, driving a car, and the paper-round bike.
+  - It finds them from the live scene: `F1Circuit` via `TrackPath`, `FarmCrops`/`FarmHouse`/`_FarmDressing`,
+    `SuburbHouses`, `CityArea`, `GalleryArea`, and `VehicleInteraction.CarEntered`/`CarExited`.
+  - It shows import progress while a lecture imports, and hides during menus, the full map, prompts, loading and races.
+  - **Teammates:** add places or tips in `TipBar.ResolvePlaces`.
+- **Menu button** (☰ Menu · Esc) in the top-left corner opens the Esc menu. The **minimap hides** while the menu or
+  any pausing panel is open.
+- **Sandier UI:** panels are a warm grey-beige (`SubjectPalette.Panel` 0.89/0.85/0.77) instead of near-white; insets
+  are darker. Light text and icons on buttons are cream (`SubjectPalette.LightText`) instead of pure white.
+- **Organize subjects, redone:**
+  - no import button (it's for sorting what's already imported);
+  - the tofu "□" on the subject button is gone (the font has no ▸; `MenuWidgets.Cycle` now draws a chevron);
+  - cards fill the width properly (they used to spill 50 px off the left edge);
+  - drag a card by its top bar to **reorder** subjects (saved, `LibraryStore.MoveBundle`);
+  - each card has a **⋯ menu**: Add items (from Unsorted or other subjects), Subject (colour/symbols), Rename, Delete;
+  - Gemini button is just "Generate" / "Regenerate";
+  - drop an item on the "New subject" tile to start a subject with it;
+  - an item's ✕ in a card sends it back to Unsorted (the bin in Unsorted deletes).
+
+---
+
 ## 2026-09-27 (4): BenJPanackal (themed UI, Esc menu, subject bundles)
 
 **Done** (no teammate files edited)

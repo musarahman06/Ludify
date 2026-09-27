@@ -107,6 +107,27 @@ namespace Ludify.Import
             ["trash"] = p => { p.Line(0.2f, 0.78f, 0.8f, 0.78f, 0.08f); p.Line(0.4f, 0.86f, 0.6f, 0.86f, 0.08f);
                                p.Poly(0.27f, 0.72f, 0.73f, 0.72f, 0.67f, 0.12f, 0.33f, 0.12f); },
             ["check"] = p => { p.Line(0.2f, 0.5f, 0.42f, 0.28f, 0.12f); p.Line(0.42f, 0.28f, 0.82f, 0.75f, 0.12f); },
+            ["menu"] = p => { foreach (float y in new[] { 0.72f, 0.5f, 0.28f }) p.Line(0.2f, y, 0.8f, y, 0.11f); },
+            ["more"] = p => { foreach (float x in new[] { 0.22f, 0.5f, 0.78f }) p.Circle(x, 0.5f, 0.09f); },
+            ["grip"] = p => { foreach (float x in new[] { 0.36f, 0.64f }) foreach (float y in new[] { 0.24f, 0.5f, 0.76f }) p.Circle(x, y, 0.08f); },
+            ["chevron"] = p => { p.Line(0.38f, 0.2f, 0.66f, 0.5f, 0.12f); p.Line(0.66f, 0.5f, 0.38f, 0.8f, 0.12f); },
+            ["back"] = p => { p.Line(0.62f, 0.2f, 0.34f, 0.5f, 0.12f); p.Line(0.34f, 0.5f, 0.62f, 0.8f, 0.12f); },
+            // Places (tip bar)
+            ["bulb"] = p => { p.Circle(0.5f, 0.6f, 0.27f); p.Rect(0.38f, 0.24f, 0.62f, 0.42f); p.Line(0.4f, 0.15f, 0.6f, 0.15f, 0.07f); },
+            ["car"] = p => { p.RoundRect(0.06f, 0.28f, 0.94f, 0.54f, 0.07f); p.Poly(0.24f, 0.53f, 0.34f, 0.76f, 0.66f, 0.76f, 0.78f, 0.53f);
+                             p.Poly(true, 0.33f, 0.56f, 0.39f, 0.7f, 0.61f, 0.7f, 0.69f, 0.56f); p.Circle(0.27f, 0.27f, 0.12f); p.Circle(0.73f, 0.27f, 0.12f);
+                             p.Circle(0.27f, 0.27f, 0.05f, erase: true); p.Circle(0.73f, 0.27f, 0.05f, erase: true); },
+            ["flag"] = p => { p.Line(0.24f, 0.08f, 0.24f, 0.92f, 0.07f); p.Rect(0.27f, 0.5f, 0.84f, 0.9f);
+                              for (int i = 0; i < 3; i++) for (int j = 0; j < 2; j++) if ((i + j) % 2 == 0)
+                                  p.Rect(0.27f + i * 0.19f, 0.5f + j * 0.2f, 0.46f + i * 0.19f, 0.7f + j * 0.2f, erase: true); },
+            ["person"] = p => { p.Circle(0.5f, 0.74f, 0.15f); p.RoundRect(0.26f, 0.08f, 0.74f, 0.54f, 0.2f); },
+            ["barn"] = p => { p.Poly(0.1f, 0.08f, 0.9f, 0.08f, 0.9f, 0.56f, 0.5f, 0.88f, 0.1f, 0.56f); p.Rect(0.36f, 0.08f, 0.64f, 0.42f, erase: true);
+                              p.Line(0.38f, 0.1f, 0.62f, 0.4f, 0.05f); p.Line(0.38f, 0.4f, 0.62f, 0.1f, 0.05f); },
+            ["house"] = p => { p.Poly(0.06f, 0.52f, 0.5f, 0.9f, 0.94f, 0.52f); p.Rect(0.18f, 0.1f, 0.82f, 0.53f); p.Rect(0.42f, 0.1f, 0.58f, 0.36f, erase: true); },
+            ["city"] = p => { p.Rect(0.08f, 0.08f, 0.34f, 0.58f); p.Rect(0.4f, 0.08f, 0.62f, 0.92f); p.Rect(0.68f, 0.08f, 0.92f, 0.46f);
+                              for (int i = 0; i < 4; i++) p.Rect(0.46f, 0.72f - i * 0.16f, 0.56f, 0.8f - i * 0.16f, erase: true); },
+            ["map"] = p => { p.Poly(0.08f, 0.18f, 0.36f, 0.08f, 0.64f, 0.18f, 0.92f, 0.08f, 0.92f, 0.82f, 0.64f, 0.92f, 0.36f, 0.82f, 0.08f, 0.92f);
+                             p.Line(0.36f, 0.12f, 0.36f, 0.8f, 0.035f, erase: true); p.Line(0.64f, 0.2f, 0.64f, 0.88f, 0.035f, erase: true); },
             // Science
             ["beaker"] = p => { p.Line(0.28f, 0.85f, 0.28f, 0.18f, W); p.Line(0.28f, 0.18f, 0.72f, 0.18f, W); p.Line(0.72f, 0.18f, 0.72f, 0.85f, W);
                                 p.Line(0.2f, 0.85f, 0.28f, 0.85f, W); p.Rect(0.31f, 0.21f, 0.69f, 0.5f); p.Line(0.72f, 0.65f, 0.6f, 0.65f, 0.035f); },

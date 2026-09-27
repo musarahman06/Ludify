@@ -12,15 +12,17 @@ namespace Ludify.Import
         public Subject Subject;
         public string Name;
         public Color Accent;
-        /// <summary>Cream panel background.</summary>
-        public Color Panel = new Color(0.97f, 0.93f, 0.85f, 1f);
+        /// <summary>Sandy cream panel background (warm grey-beige, not white).</summary>
+        public Color Panel = new Color(0.89f, 0.85f, 0.77f, 1f);
         /// <summary>Main text on panels (warm dark brown, like the reference).</summary>
         public Color Text = new Color(0.33f, 0.25f, 0.19f, 1f);
         public Color MutedText = new Color(0.52f, 0.44f, 0.37f, 1f);
         /// <summary>Neutral button (the reference's charcoal "settings" button).</summary>
         public Color Neutral = new Color(0.36f, 0.35f, 0.34f, 1f);
         /// <summary>Recessed areas such as input boxes and list backgrounds.</summary>
-        public Color Inset = new Color(0.9f, 0.85f, 0.75f, 1f);
+        public Color Inset = new Color(0.81f, 0.76f, 0.67f, 1f);
+        /// <summary>Text on dark or coloured backgrounds: a soft cream instead of pure white.</summary>
+        public Color LightText = new Color(0.98f, 0.95f, 0.89f, 1f);
 
         public Color AccentDark => Color.Lerp(Accent, Color.black, 0.22f);
         public Color AccentLight => Color.Lerp(Accent, Color.white, 0.55f);

@@ -12,8 +12,9 @@ namespace Ludify.Menu
 {
     /// <summary>
     /// The Esc menu (styled after the reference): Resume · Import files · Organize subjects · Settings · Help.
-    /// Opens only when no other screen is using Esc; pauses the game while open. Installs itself in any
-    /// scene with a player (no scene edits). Reads (never edits) teammates' UI state to decide.
+    /// Opens with Esc or the "Menu" button in the top-left corner, only when no other screen is using Esc;
+    /// pauses the game (and hides the minimap) while open. Installs itself in any scene with a player (no scene
+    /// edits). Reads (never edits) teammates' UI state to decide.
     /// </summary>
     public sealed class PauseMenu : MonoBehaviour
     {
@@ -22,7 +23,7 @@ namespace Ludify.Menu
         public static bool IsOpen => _instance != null && _instance._root != null && _instance._root.activeSelf;
         static PauseMenu _instance;
 
-        GameObject _root, _main, _current;
+        GameObject _root, _main, _current, _menuButton;
         TextMeshProUGUI _subjectName, _subjectInfo;
         Image _subjectChip;
         bool _othersOpenLastFrame;
@@ -55,6 +56,7 @@ namespace Ludify.Menu
             UiKit.Stretch(UiKit.Image("Dim", canvas.transform, new Color(0.12f, 0.1f, 0.08f, 0.45f), raycast: true).rectTransform);
             _main = BuildMain(canvas.transform);
             _root.SetActive(false);
+            BuildMenuButton();
             LudifyTheme.Changed += RefreshSubjectCard;
             LibraryStore.Changed += RefreshSubjectCard;
         }
@@ -76,7 +78,7 @@ namespace Ludify.Menu
             {
                 if (IsOpen)
                 {
-                    if (!ImportPanel.IsShowing && !SimpleFileBrowser.FileBrowser.IsOpen)
+                    if (!ImportPanel.IsShowing && !SimpleFileBrowser.FileBrowser.IsOpen && !CardMenu.CloseOpen())
                     {
                         if (_current != _main) ShowScreen(_main); else Close();
                     }
@@ -85,10 +87,25 @@ namespace Ludify.Menu
                 else if (!others && !_othersOpenLastFrame) Open();
             }
             _othersOpenLastFrame = others;
+
+            // The corner button shows whenever Esc would open the menu.
+            bool button = !IsOpen && !others && !LoadingScreen.IsLoading;
+            if (_menuButton != null && _menuButton.activeSelf != button) _menuButton.SetActive(button);
+        }
+
+        /// <summary>"☰ Menu" pill in the top-left corner: the same as pressing Esc.</summary>
+        void BuildMenuButton()
+        {
+            Canvas canvas = UiKit.CreateCanvas("MenuButtonCanvas", 35);
+            canvas.transform.SetParent(transform, false);
+            Button b = UiKit.Button("MenuButton", canvas.transform, "Menu  <size=70%><alpha=#AA>Esc</size>", 26,
+                                    () => { if (!OthersOpen()) Open(); }, UiKit.ButtonColor, ThemeArt.Icon("menu"));
+            UiKit.Place((RectTransform)b.transform, new Vector2(0, 1), new Vector2(24, -20), new Vector2(210, 64));
+            _menuButton = b.gameObject;
         }
 
         /// <summary>Anything else on screen that uses Esc or shouldn't be interrupted by a pause.</summary>
-        static bool OthersOpen()
+        internal static bool OthersOpen()
         {
             if (IsOpen) return false;
             if (ModalGuard.IsOpen || ImportPanel.IsShowing || QuestionPrompt.IsOpen || SimpleFileBrowser.FileBrowser.IsOpen) return true;

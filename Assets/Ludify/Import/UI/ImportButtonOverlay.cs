@@ -5,14 +5,19 @@ using UnityEngine;
 namespace Ludify.Import
 {
     /// <summary>
-    /// Small "Import lecture" button at the top of the screen, in every scene.
-    /// Installs itself at startup, so no scene needs editing. Takes a file, pasted text or a pasted image,
-    /// generates questions, and raises <see cref="LessonImported"/> for gameplay to use.
+    /// The in-game lecture import flow, in every scene (installs itself at startup, so no scene needs editing).
+    /// <see cref="RequestImport"/> (Esc menu → Import files, the race's import prompt) takes a file, pasted text or a
+    /// pasted image, generates questions, and raises <see cref="LessonImported"/> for gameplay to use.
+    /// There's no on-screen button any more; progress shows in a small card at the top of the screen, or in the
+    /// tip bar when a scene has one (<see cref="StatusShownElsewhere"/>).
     /// </summary>
     public sealed class ImportButtonOverlay : MonoBehaviour
     {
-        /// <summary>Set false (e.g. from gameplay code) to hide the button.</summary>
+        /// <summary>Set false (e.g. from gameplay code) to hide the progress card.</summary>
         public static bool Enabled = true;
+
+        /// <summary>Set true by a HUD that shows <see cref="StatusMessage"/> itself (the tip bar), so the card stays hidden.</summary>
+        public static bool StatusShownElsewhere;
 
         /// <summary>Raised on the main thread when a lesson has been imported (or loaded from cache).</summary>
         public static event Action<QuestionBank> LessonImported;
@@ -60,7 +65,6 @@ namespace Ludify.Import
         bool _busy;
         string _message;
         float _messageUntil;
-        UnityEngine.UI.Button _buttonUi;
         GameObject _messageBox, _root;
         TMPro.TextMeshProUGUI _messageText;
 
@@ -82,14 +86,12 @@ namespace Ludify.Import
 
         void Start()
         {
-            // Themed pill button at the top of the screen, with a message card under it.
-            Canvas canvas = UiKit.CreateCanvas("ImportButtonCanvas", 30);
+            // Progress/result card at the top of the screen.
+            Canvas canvas = UiKit.CreateCanvas("ImportStatusCanvas", 30);
             canvas.transform.SetParent(transform, false);
             _root = canvas.gameObject;
-            _buttonUi = UiKit.Button("ImportLecture", canvas.transform, "Import lecture", 22, ShowChoices, UiKit.AccentColor, ThemeArt.Icon("import"));
-            UiKit.Place((RectTransform)_buttonUi.transform, new Vector2(0.5f, 1f), new Vector2(0, -12), new Vector2(270, 60));
             UnityEngine.UI.Image box = UiKit.Image("Message", canvas.transform, UiKit.PanelColor, UiKit.RoundedSprite);
-            UiKit.Place(box.rectTransform, new Vector2(0.5f, 1f), new Vector2(0, -82), new Vector2(720, 0));
+            UiKit.Place(box.rectTransform, new Vector2(0.5f, 1f), new Vector2(0, -16), new Vector2(720, 0));
             var fit = box.gameObject.AddComponent<UnityEngine.UI.VerticalLayoutGroup>();
             fit.padding = new RectOffset(22, 22, 14, 16);
             fit.childControlWidth = fit.childControlHeight = true;
@@ -103,12 +105,11 @@ namespace Ludify.Import
         {
             _testPanelPresent = FindAnyObjectByType<ImportTestPanel>() != null;
             if (_root == null) return;
-            // Hidden when switched off, while another import screen is up, or in the developer test scene.
-            bool show = Enabled && !LessonFilePicker.IsOpen && !_testPanelPresent;
+            // Hidden when switched off, while another import screen is up, in the developer test scene, or when the
+            // tip bar is showing the progress instead.
+            bool show = Enabled && !StatusShownElsewhere && !LessonFilePicker.IsOpen && !_testPanelPresent;
             if (_root.activeSelf != show) _root.SetActive(show);
             if (!show) return;
-            _buttonUi.interactable = !_busy;
-            UiKit.SetButtonLabel(_buttonUi, _busy ? "Importing…" : "Import lecture");
             bool message = !string.IsNullOrEmpty(_message) && Time.unscaledTime < _messageUntil;
             if (_messageBox.activeSelf != message) _messageBox.SetActive(message);
             if (message && _messageText.text != _message) _messageText.text = _message;

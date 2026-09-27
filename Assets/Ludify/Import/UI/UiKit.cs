@@ -164,7 +164,7 @@ namespace Ludify.Import
                 brt.sizeDelta = new Vector2(0, 0);
                 brt.offsetMin = new Vector2(0, 0);
                 block.gameObject.AddComponent<AspectRatioFitter>().aspectMode = AspectRatioFitter.AspectMode.HeightControlsWidth;
-                Image glyph = Image("Icon", block.transform, Color.white, icon);
+                Image glyph = Image("Icon", block.transform, LudifyTheme.Palette.LightText, icon);
                 Stretch(glyph.rectTransform, 0);
                 glyph.rectTransform.anchorMin = new Vector2(0.2f, 0.24f);
                 glyph.rectTransform.anchorMax = new Vector2(0.8f, 0.84f);

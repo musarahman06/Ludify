@@ -186,6 +186,17 @@ namespace Ludify.Import
             else Save();
         }
 
+        /// <summary>Moves a bundle to a new position in the list (the order the subjects screen shows).</summary>
+        public static void MoveBundle(SubjectBundle b, int index)
+        {
+            int from = Data.Bundles.IndexOf(b);
+            index = Mathf.Clamp(index, 0, Data.Bundles.Count - 1);
+            if (from < 0 || from == index) return;
+            Data.Bundles.RemoveAt(from);
+            Data.Bundles.Insert(index, b);
+            Save();
+        }
+
         public static void Rename(SubjectBundle b, string name) { if (!string.IsNullOrWhiteSpace(name)) { b.Name = name.Trim(); Save(); } }
 
         public static void SetSubject(SubjectBundle b, Subject s)

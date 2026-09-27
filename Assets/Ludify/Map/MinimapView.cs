@@ -16,6 +16,7 @@ namespace Ludify.Map
         MapSystem _map;
         RawImage _image;
         RectTransform _player, _icons;
+        CanvasGroup _group;
         readonly List<(FastTravelPoint Point, RectTransform Icon)> _pointIcons = new List<(FastTravelPoint, RectTransform)>();
         readonly List<(FastTravelPoint Point, RectTransform Icon)> _markerIcons = new List<(FastTravelPoint, RectTransform)>();
         readonly List<(FastTravelPoint Point, RectTransform Circle)> _areas = new List<(FastTravelPoint, RectTransform)>();
@@ -57,8 +58,9 @@ namespace Ludify.Map
             _player = UiKit.Place(UiKit.Image("Player", mask.transform, Color.white, UiKit.ArrowSprite).rectTransform,
                                   new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(24, 24));
 
-            UiKit.Stretch(UiKit.Image("Border", transform, new Color(1, 1, 1, 0.9f), UiKit.RingSprite).rectTransform);
+            UiKit.Stretch(UiKit.Image("Border", transform, UiKit.PanelColor, UiKit.RingSprite).rectTransform);
             AddCompass();
+            _group = gameObject.AddComponent<CanvasGroup>();
 
             TextMeshProUGUI hint = UiKit.Text("Hint", transform, "Map  [M]", 18);
             UiKit.Place(hint.rectTransform, new Vector2(0.5f, 1f), new Vector2(0, 40), new Vector2(Size, 24)); // above the N
@@ -113,6 +115,12 @@ namespace Ludify.Map
 
         void LateUpdate()
         {
+            // Out of the way while the Esc menu or another pausing panel is up (they cover this corner).
+            bool hidden = ModalGuard.IsOpen;
+            _group.alpha = hidden ? 0 : 1;
+            _group.blocksRaycasts = !hidden;
+            if (hidden) return;
+
             Transform focus = _map.Focus;
             if (focus == null) return;
             MapMarkers.UpdatePositions();

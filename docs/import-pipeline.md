@@ -22,8 +22,9 @@ Owner: import team (BenJPanackal). Namespace: `Ludify.Import`. Folders: `Assets/
 - **Web search:** Google Search grounding returns 429 (quota 0) on free keys. The researcher then
   falls back to the model's own knowledge for the session. Enabling billing on the key turns web search on
   automatically, and source URLs appear in `QuestionBank.Sources`.
-- **In-game button:** `ImportButtonOverlay` adds "Import lecture" at the top of every scene and raises
-  `ImportButtonOverlay.LessonImported(QuestionBank)`.
+- **In game:** Esc menu (or the top-left Menu button) → **Import files** calls `ImportButtonOverlay.RequestImport()`,
+  which raises `ImportButtonOverlay.LessonImported(QuestionBank)`. There's no on-screen import button; progress shows
+  in the tip bar (or a small card at the top in scenes without one).
 - **Cost:** 2 requests per new file. Re-importing the same file is free (cache).
   Changing prompts: bump `PipelineVersion` in `LessonImporter` to invalidate old banks.
 - **Keys:** `GEMINI_API_KEY` env var → `<project>/ludify_secrets.json` → `persistentDataPath/ludify_secrets.json`.
@@ -60,7 +61,7 @@ To import from gameplay code: `await new LessonImporter().ImportAsync(path, prog
 
 ## Ways to import (all runtime, Mac + Windows)
 
-- **Lecture → questions**: the "Import lecture" button opens `ImportPanel`, which offers:
+- **Lecture → questions**: Menu → Import files opens `ImportPanel`, which offers:
   - choose a file (PDF, PPTX, DOCX, TXT/MD, PNG/JPG),
   - paste text (`LessonImporter.ImportTextAsync`),
   - paste an image (`ImportImageAsync`).
