@@ -8,9 +8,9 @@ using static Ludify.Import.ModelKit;
 namespace Ludify.Gallery
 {
     /// <summary>
-    /// Turns the north-east city blocks into an outdoor gallery at runtime (no scene edits):
-    /// the buildings there are switched off, each lot becomes a lawn, every other lot gets a
-    /// pedestal, and an entrance sign marks the south side. Roads stay as walking paths.
+    /// Turns the north-east city blocks into an outdoor cherry-blossom gallery at runtime (no scene edits):
+    /// the buildings and roads there are switched off, the ground is painted pink, a stone path winds from the
+    /// entrance sign past every exhibit easel, and cherry trees with lanterns fill the rest (<see cref="GalleryGarden"/>).
     /// </summary>
     public static class GalleryArea
     {
@@ -20,9 +20,12 @@ namespace Ludify.Gallery
         /// <summary>Building groups whose buildings inside <see cref="Area"/> are replaced.</summary>
         static readonly string[] BuildingGroups = { "InnerOutskirtsBuildings", "DowntownBuildings", "CityOutskirtsBuildings" };
 
-        const float LawnSize = 20f;
-        static readonly Color Lawn = new Color(0.36f, 0.62f, 0.3f);
-        static readonly Color SignColor = new Color(0.45f, 0.25f, 0.6f);
+        /// <summary>Road groups whose pieces inside <see cref="Area"/> are replaced by the stone path.</summary>
+        static readonly string[] RoadGroups = { "Roads_InnerOutskirts", "Roads_Downtown", "Roads_CityOutskirts", "RoadConnectors", "RoadProps" };
+
+        const int MaxExhibits = 16;
+        static readonly Color SignColor = new Color(0.5f, 0.33f, 0.22f);        // wood, like the easels
+        static readonly Color SignBlossom = new Color(0.96f, 0.62f, 0.75f);
 
         public sealed class Layout
         {
@@ -36,6 +39,7 @@ namespace Ludify.Gallery
         public static Layout Build(Transform root)
         {
             List<Vector3> lots = HideBuildings();
+            HideRoads(root);
             var layout = new Layout();
             if (lots.Count == 0)
             {
@@ -43,23 +47,20 @@ namespace Ludify.Gallery
                 return layout;
             }
 
-            // Lots sit on a grid; index them so we can place a pedestal on every other one (checkerboard).
-            float[] xs = Cluster(lots.Select(l => l.x)), zs = Cluster(lots.Select(l => l.z));
-            Vector3 entranceLot = lots.OrderBy(l => l.z).ThenBy(l => Mathf.Abs(l.x - Area.center.x)).First();
+            GalleryGarden.PaintGround(Area);
 
-            foreach (Vector3 lot in lots)
+            // Entrance on the south edge, in the middle; the stone path runs north from it through the whole gallery.
+            Vector3 gate = Ground(new Vector3(400f, 0f, Area.yMin + 5f));
+            var paths = GalleryGarden.PathNetwork(Area, gate);
+            var easels = new List<Vector3>();
+            foreach (var (position, rotation) in GalleryGarden.EaselSpots(paths, gate, MaxExhibits))
             {
-                Vector3 ground = Ground(lot);
-                Prim(PrimitiveType.Cube, root, ground + Vector3.up * 0.03f, new Vector3(LawnSize, 0.06f, LawnSize), Lawn, name: "Lawn");
-
-                if (Near(lot, entranceLot)) continue;
-                int ix = Nearest(xs, lot.x), iz = Nearest(zs, lot.z);
-                if ((ix + iz) % 2 != 0) continue;
-                // Pedestals face south, toward the entrance and the rest of the city.
-                layout.Pedestals.Add(Pedestal.Create(root, ground + Vector3.up * 0.06f, Quaternion.identity));
+                layout.Pedestals.Add(Pedestal.Create(root, Ground(position), rotation));
+                easels.Add(position);
             }
+            GalleryGarden.Decorate(root, Area, paths, easels, gate);
 
-            BuildEntranceSign(root, Ground(entranceLot), out layout.Entrance, out layout.EntranceFacing);
+            BuildEntranceSign(root, gate, out layout.Entrance, out layout.EntranceFacing);
             return layout;
         }
 
@@ -83,6 +84,31 @@ namespace Ludify.Gallery
                 }
             }
             return lots;
+        }
+
+        /// <summary>Switches off the asphalt roads (and their props) inside the area; the stone path replaces them.</summary>
+        static void HideRoads(Transform root)
+        {
+            foreach (string groupName in RoadGroups)
+            {
+                GameObject group = GameObject.Find(groupName);
+                if (group == null) continue;
+                foreach (Transform piece in group.transform)
+                {
+                    Renderer[] renderers = piece.GetComponentsInChildren<Renderer>(true);
+                    if (renderers.Length == 0) continue;
+                    Bounds b = renderers[0].bounds;
+                    foreach (Renderer r in renderers) b.Encapsulate(r.bounds);
+                    if (Contains(b.center)) piece.gameObject.SetActive(false);
+                    else if (b.max.x > Area.xMin && b.min.x < Area.xMax && b.max.z > Area.yMin && b.min.z < Area.yMax)
+                    {
+                        // Runs on outside the gallery too (e.g. the long east spine): just cover the part inside.
+                        float x0 = Mathf.Max(b.min.x, Area.xMin), x1 = Mathf.Min(b.max.x, Area.xMax);
+                        float z0 = Mathf.Max(b.min.z, Area.yMin), z1 = Mathf.Min(b.max.z, Area.yMax);
+                        if (x1 - x0 > 5f && z1 - z0 > 5f) GalleryGarden.CoverRoad(root, Rect.MinMaxRect(x0, z0, x1, z1), b.max.y);
+                    }
+                }
+            }
         }
 
         /// <summary>
@@ -123,6 +149,8 @@ namespace Ludify.Gallery
                 text.rectTransform.sizeDelta = new Vector2(7f, 1.3f);
                 text.color = Color.white;
             }
+            foreach (var (x, y, s) in new[] { (-3.4f, 4.9f, 1.1f), (3.4f, 4.9f, 1.1f), (-1.6f, 5.0f, 0.8f), (1.9f, 5.05f, 0.9f) })
+                Prim(PrimitiveType.Sphere, sign, new Vector3(x, y, 0), new Vector3(s * 1.4f, s, s * 1.2f), SignBlossom, name: "Blossom");
             // Only the posts are solid, so people can walk through the gate.
             foreach (float x in new[] { -3.2f, 3.2f })
             {
@@ -143,24 +171,5 @@ namespace Ludify.Gallery
             Terrain t = Terrain.activeTerrain;
             return t != null ? new Vector3(p.x, t.SampleHeight(p) + t.transform.position.y, p.z) : p;
         }
-
-        /// <summary>Distinct grid lines (values within 6 m merge).</summary>
-        static float[] Cluster(IEnumerable<float> values)
-        {
-            var lines = new List<float>();
-            foreach (float v in values.OrderBy(v => v))
-                if (lines.Count == 0 || v - lines[lines.Count - 1] > 6f) lines.Add(v);
-            return lines.ToArray();
-        }
-
-        static int Nearest(float[] lines, float v)
-        {
-            int best = 0;
-            for (int i = 1; i < lines.Length; i++)
-                if (Mathf.Abs(lines[i] - v) < Mathf.Abs(lines[best] - v)) best = i;
-            return best;
-        }
-
-        static bool Near(Vector3 a, Vector3 b) => (a - b).sqrMagnitude < 1f;
     }
 }

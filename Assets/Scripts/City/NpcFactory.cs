@@ -65,6 +65,9 @@ public static class NpcFactory
         iconAnchor.SetParent(root.transform, false);
         iconAnchor.localPosition = new Vector3(0f, 2.9f * s, 0f);
 
+        // Add the agent while inactive, so one placed off the city NavMesh (e.g. a job giver on the farm) can be
+        // switched off before it tries to bind and logs a warning.
+        root.SetActive(false);
         var agent = root.AddComponent<NavMeshAgent>();
         agent.radius = 0.35f;
         agent.height = 2f;
@@ -76,9 +79,12 @@ public static class NpcFactory
         agent.avoidancePriority = Random.Range(30, 70);
 
         var npc = root.AddComponent<Npc>();
+        if (!NavMesh.SamplePosition(position, out _, 1f, NavMesh.AllAreas)) agent.enabled = false;
+        root.SetActive(true);
+
         npc.DisplayName = FirstNames[nameIndex++ % FirstNames.Length];
         root.name = "NPC_" + npc.DisplayName;
-        npc.Init(visual.transform, iconAnchor);
+        npc.Init(visual.transform, iconAnchor);   // after activating: the head icon's TextMeshPro needs an active object
         return npc;
     }
 

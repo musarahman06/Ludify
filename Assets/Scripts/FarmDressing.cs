@@ -457,9 +457,12 @@ public class FarmGround : MonoBehaviour
         grassRects = extraGrass != null ? new List<Rect>(extraGrass) : new List<Rect>();
     }
 
-    void Awake()
+    // Start, not Awake: in the Editor the scene processor adds this component to the already-loaded scene, so Awake
+    // ran before Setup() had passed in the layers and the farm (and the ground under the extended track) stayed brown.
+    void Start()
     {
-        var terrain = Terrain.activeTerrain;
+        // Terrain.activeTerrain is only set once the terrain is enabled; fall back to finding it.
+        var terrain = Terrain.activeTerrain != null ? Terrain.activeTerrain : FindAnyObjectByType<Terrain>();
         if (terrain == null || green == null || dirt == null) { Painted = true; return; }
 
         var data = Instantiate(terrain.terrainData);

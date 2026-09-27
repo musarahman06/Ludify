@@ -29,6 +29,30 @@ Keep each entry short: what changed, what's half-done, what's next, anything tha
 
 ---
 
+---
+
+## 2026-09-27 (4): musarahman (cherry-blossom gallery, green ground under the new track)
+
+**Ben, please review:** this edits your `Assets/Ludify/Gallery/GalleryArea.cs` and `Pedestal.cs` (visuals only)
+and adds `GalleryGarden.cs`. `GallerySystem`, `ExhibitViewer`, `ExhibitStore` and the import pipeline are unchanged.
+**therishonsingh:** there's a small fix in your `FarmDressing.cs` (see below).
+
+- **Gallery restyled like a cherry-blossom park.**
+  - The roads inside the gallery area are hidden too. The long `EastSpine` road runs on outside, so the part inside is
+    covered with a pink slab.
+  - The ground is painted pink on the runtime terrain copy (a new `Z_GalleryPink` layer; the terrain asset is never touched).
+  - A stone path runs from the south entrance up the middle, round a big loop with a cross path and a stone plaza, with
+    links to the S1 and Suspension bridges.
+  - About 95 low-poly cherry trees, some with glowing lanterns, plus fallen petals, rocks and ferns. All the decoration
+    is merged into about 16 meshes (one per color), with capsule colliders on the trunks.
+- **Exhibit spots are easels, not pedestals.** A wooden easel's canvas shows the uploaded image, a wooden card underneath
+  explains it, and the 3D model stands on a low round platform beside it. The class is still `Pedestal` with the same API
+  (`TopHeight` is now 0.46, the model sits at local x +1.35). The 16 spots line the paths, facing them. Saved exhibits
+  still restore to the nearest spot.
+- **Green ground under the extended track.** `FarmGround` painted in `Awake`, but in the Editor the scene processor
+  adds it to the already-loaded scene, so `Awake` ran before `Setup()` passed in the layers. It quietly did nothing,
+  and the old west farm stayed brown. It now paints in `Start`, with a `FindAnyObjectByType<Terrain>()` fallback.
+
 ## 2026-09-27 (3): BenJPanackal (Concept vs Traced exhibits)
 
 **Done** (gallery/import only)
