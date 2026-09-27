@@ -131,6 +131,7 @@ public class QuestManager : MonoBehaviour
         QuestTarget target = NearestTarget();
         Npc npc = target == null ? NearestNpc() : null;
         if (target != null) hud.SetPrompt($"[E]  Pick up {(target.TargetKind == QuestTarget.Kind.Pet ? target.Label : "the " + target.Label)}");
+        else if (npc != null && npc == ClothingShop.Keeper) hud.SetPrompt($"[E]  Shop with {npc.DisplayName}");
         else if (npc != null) hud.SetPrompt($"[E]  Talk to {npc.DisplayName}");
         else hud.SetPrompt(null);
 
@@ -159,6 +160,9 @@ public class QuestManager : MonoBehaviour
             float d = (n.transform.position - p).sqrMagnitude;
             if (d < bestDist) { bestDist = d; best = n; }
         }
+        // The shopkeeper stands behind her counter, so she can be reached from a little further away.
+        var keeper = ClothingShop.Keeper;
+        if (keeper != null && (keeper.transform.position - p).sqrMagnitude < Mathf.Min(bestDist, 3.5f * 3.5f)) best = keeper;
         return best;
     }
 
@@ -177,6 +181,14 @@ public class QuestManager : MonoBehaviour
     {
         talkingTo = npc;
         npc.BeginTalk(player.transform);
+
+        if (npc == ClothingShop.Keeper)
+        {
+            dialogue.Show(npc.DisplayName, $"Welcome to my clothing store! You've got {PlayerProgress.Coins} coins. Want to try something on?",
+                ("Show me!", () => StoreView.Instance?.Open()),
+                ("Just looking", null));
+            return;
+        }
 
         if (active != null)
         {

@@ -40,6 +40,9 @@ public class TimeTrialManager : MonoBehaviour
     public float CountdownRemaining => CountdownSeconds - (Time.time - countdownStart);
     public int Asked { get; private set; }
     public int CorrectCount { get; private set; }
+    /// <summary>Coins earned this race (<see cref="CoinsPerCorrect"/> per lap question answered right).</summary>
+    public int CoinsEarned { get; private set; }
+    public const int CoinsPerCorrect = 5;
     public bool HasQuiz => bank != null;
     public string Topic => bank?.Topic;
     /// <summary>Questions from this lecture that have never been asked (each question is only ever used once).</summary>
@@ -202,7 +205,7 @@ public class TimeTrialManager : MonoBehaviour
         Lap = 0;
         PenaltyTotal = 0f;
         LastLap = BestLapThisRace = 0f;
-        Asked = CorrectCount = 0;
+        Asked = CorrectCount = CoinsEarned = 0;
         NewRecordTotal = NewRecordLap = false;
         wrongWayTimer = 0f;
 
@@ -398,7 +401,9 @@ public class TimeTrialManager : MonoBehaviour
         if (LastAnswerCorrect)
         {
             Car.ApplyBoost(BoostMultiplier, BoostSeconds);
-            Flash("BOOST!", new Color(0.35f, 0.9f, 1f));
+            PlayerProgress.AddCoins(CoinsPerCorrect);   // spend them in the clothing store
+            CoinsEarned += CoinsPerCorrect;
+            Flash($"BOOST!  +{CoinsPerCorrect} coins", new Color(0.35f, 0.9f, 1f));
         }
         else
         {

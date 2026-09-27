@@ -1,20 +1,23 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using Newtonsoft.Json;
 using UnityEngine;
 
 /// <summary>
-/// Coins and helper stars earned from city quests, saved as JSON in
+/// Coins and helper stars earned from city quests and races, plus the clothes you own and wear, saved as JSON in
 /// &lt;persistentDataPath&gt;/Progress/player_progress.json.
 /// </summary>
 public static class PlayerProgress
 {
-    [Serializable]
+    // Saved with Newtonsoft JSON (not Unity serialization).
     sealed class Data
     {
         public int Coins;
         public int Stars;
         public int QuestsCompleted;
+        public List<string> Owned = new List<string>();
+        public Dictionary<string, string> Equipped = new Dictionary<string, string>();
     }
 
     static readonly (int stars, string title)[] Titles =
@@ -52,6 +55,47 @@ public static class PlayerProgress
         }
     }
 
+    /// <summary>Coins from anything other than a quest (e.g. a correct lap question).</summary>
+    public static void AddCoins(int amount)
+    {
+        if (amount <= 0) return;
+        Load();
+        data.Coins += amount;
+        Save();
+        Changed?.Invoke();
+    }
+
+    /// <summary>Takes the coins if you have enough.</summary>
+    public static bool TrySpend(int amount)
+    {
+        Load();
+        if (amount < 0 || data.Coins < amount) return false;
+        data.Coins -= amount;
+        Save();
+        Changed?.Invoke();
+        return true;
+    }
+
+    public static bool Owns(string itemId) { Load(); return data.Owned.Contains(itemId); }
+
+    public static void AddOwned(string itemId)
+    {
+        Load();
+        if (data.Owned.Contains(itemId)) return;
+        data.Owned.Add(itemId);
+        Save();
+    }
+
+    /// <summary>Item id worn in a slot (e.g. "Hat"), or null for the starter item.</summary>
+    public static string EquippedIn(string slot) { Load(); return data.Equipped.TryGetValue(slot, out var id) ? id : null; }
+
+    public static void Equip(string slot, string itemId)
+    {
+        Load();
+        data.Equipped[slot] = itemId;
+        Save();
+    }
+
     public static void AddQuestReward(int coins, int stars = 1)
     {
         Load();
@@ -69,6 +113,8 @@ public static class PlayerProgress
         try
         {
             if (File.Exists(FilePath)) data = JsonConvert.DeserializeObject<Data>(File.ReadAllText(FilePath)) ?? data;
+            data.Owned ??= new List<string>();
+            data.Equipped ??= new Dictionary<string, string>();
         }
         catch (Exception e)
         {

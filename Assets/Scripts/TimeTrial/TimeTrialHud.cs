@@ -263,7 +263,7 @@ public static class TimeTrialHud
 
     static void DrawFinish(TimeTrialManager tt, float width)
     {
-        float w = Mathf.Min(520f, width - 40f), h = 330f;
+        float w = Mathf.Min(520f, width - 40f), h = 356f;
         var rect = new Rect((width - w) * 0.5f, (DesignHeight - h) * 0.5f, w, h);
         Panel(rect);
         float x = rect.x + 24f, y = rect.y + 18f, iw = w - 48f;
@@ -275,6 +275,7 @@ public static class TimeTrialHud
         if (tt.PenaltyTotal > 0f) Row(ref y, x, iw, "Penalties", $"+{tt.PenaltyTotal:0}s", Bad);
         Row(ref y, x, iw, "Best lap", TimeTrialRecords.Format(tt.BestLapThisRace), tt.NewRecordLap ? Accent : Color.white);
         if (tt.HasQuiz) Row(ref y, x, iw, "Questions", $"{tt.CorrectCount}/{tt.Asked} correct", Good);
+        if (tt.HasQuiz) Row(ref y, x, iw, "Coins earned", $"+{tt.CoinsEarned}", new Color(1f, 0.82f, 0.25f));
         Row(ref y, x, iw, $"PB {tt.LapCount} laps", TimeTrialRecords.Format(tt.RaceRecords.BestTotal), new Color(0.75f, 0.8f, 0.9f));
         Row(ref y, x, iw, "PB lap", TimeTrialRecords.Format(records.BestLap), new Color(0.75f, 0.8f, 0.9f));
 

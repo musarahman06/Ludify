@@ -51,6 +51,11 @@ public static class CityLifeBootstrap
             if (p.HasValue) residents.Add(NpcFactory.Create(player, p.Value, npcParent));
         }
 
+        // After the residents are cloned, so they don't copy the player's outfit.
+        ClothingShop.Build(player, root.transform);
+        Wardrobe.ApplyEquipped(player.visualRoot);
+        StoreView.Create(player).transform.SetParent(root.transform, false);
+
         var dialogue = DialogueBox.Create();
         dialogue.transform.SetParent(root.transform, false);
         var hud = CityHud.Create();
