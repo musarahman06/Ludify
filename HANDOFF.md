@@ -237,6 +237,12 @@ edited. The original loop is still in `Assets/Terrain/Track/f1_path.txt`.
 - Time trial: **2 questions per lap** (one in each half of the lap, at random points). This is a small edit in Musa's
   `TimeTrialManager.StartLap`/trigger check, and the "Two per lap" wording in `TimeTrialHud`.
 - Getting into a car hides the other grid cars, and they reappear, parked, when you get out (`VehicleInteraction`).
+- Old kerbs are now trimmed triangle by triangle to the new track edge. Previously a leftover red/white kerb from the removed corner
+  crossed the new asphalt.
+- **Loading screen** (`LoadingScreen.cs`, appears before the first frame). The player is frozen until every runtime system reports ready:
+  `_WorldDressing`, `_TrackExtension`, `FarmGround.Painted`, `_VehicleInteraction`, `QuestManager`, `JobManager`, `_Gallery`,
+  `MapSystem.Points`. It has a 30 s safety timeout, and `LoadingScreen.IsLoading` is there for anyone who wants to hold input.
+  **If you add a new big runtime system, add a step for it in `LoadingScreen.Build`.**
   - `FarmDressing` stays clear of the new track; the old west farm and corner are painted as grass.
 
 ---

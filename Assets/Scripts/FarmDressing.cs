@@ -442,6 +442,12 @@ public class FarmGround : MonoBehaviour
     [SerializeField] TerrainLayer green, dirt;
     [SerializeField] List<Rect> grassRects = new List<Rect>();
 
+    /// <summary>True once the farm ground has been painted this session (the loading screen waits for it).</summary>
+    public static bool Painted { get; private set; }
+
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+    static void ResetStatics() => Painted = false;
+
     public void Setup(Rect farm, List<Rect> strips, TerrainLayer greenLayer, TerrainLayer dirtLayer, List<Rect> extraGrass = null)
     {
         farmRect = farm;
@@ -454,7 +460,7 @@ public class FarmGround : MonoBehaviour
     void Awake()
     {
         var terrain = Terrain.activeTerrain;
-        if (terrain == null || green == null || dirt == null) return;
+        if (terrain == null || green == null || dirt == null) { Painted = true; return; }
 
         var data = Instantiate(terrain.terrainData);
         data.name = terrain.terrainData.name + " (farm painted)";
@@ -465,6 +471,7 @@ public class FarmGround : MonoBehaviour
 
         Paint(data, terrain.GetPosition(), farmRect, dirtStrips, gi, di);
         foreach (var r in grassRects) Paint(data, terrain.GetPosition(), r, null, gi, di);   // e.g. the old west farm, now grass
+        Painted = true;
     }
 
     static void Paint(TerrainData data, Vector3 origin, Rect farmRect, List<Rect> dirtStrips, int gi, int di)

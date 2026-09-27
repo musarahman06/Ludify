@@ -33,7 +33,7 @@ public class VehicleInteraction : MonoBehaviour
 
     void Update()
     {
-        if (player == null || orbitCamera == null) return;
+        if (player == null || orbitCamera == null || LoadingScreen.IsLoading) return;
         var kb = Keyboard.current;
         bool interact = kb != null && kb.xKey.wasPressedThisFrame;
 

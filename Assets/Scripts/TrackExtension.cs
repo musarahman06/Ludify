@@ -71,7 +71,7 @@ public static class TrackExtension
         foreach (var t in root.GetComponentsInChildren<Transform>(true))
             t.gameObject.isStatic = t.GetComponent<TextMeshPro>() == null;   // TMP text builds its mesh at runtime
         Debug.Log($"[TrackExtension] Lap {LapLength(path):0} m. Barriers kept {kept}, removed {removed}, added {added}; " +
-                  $"old kerbs off {kerbsOff}; sponsor boards {boards}; farm crops cleared {crops}.");
+                  $"old kerbs trimmed/removed {kerbsOff}; sponsor boards {boards}; farm crops cleared {crops}.");
     }
 
     // ------------------------------------------------------------------ path
@@ -258,24 +258,47 @@ public static class TrackExtension
         go.AddComponent<MeshRenderer>().sharedMaterial = kerb;
     }
 
+    /// <summary>
+    /// Trims the old kerbs to the new layout: only triangles lying along the new track's edge (6-9.5 m from the
+    /// centreline) survive. Kerbs from the removed corner (or crossing the new asphalt) are cut away, and a kerb
+    /// with nothing left is switched off. Works on in-memory mesh copies.
+    /// </summary>
     static int CullOldKerbs(GameObject circuit, List<Vector3> path)
     {
         var kerbs = circuit.transform.Find("Kerbs");
         if (kerbs == null) return 0;
-        int off = 0;
-        foreach (Transform k in kerbs)
+        int changed = 0;
+        foreach (var mf in kerbs.GetComponentsInChildren<MeshFilter>())
         {
-            var r = k.GetComponent<Renderer>();
-            if (r == null) continue;
-            // A kerb whose whole length has left the track (the removed corner) goes.
-            var b = r.bounds;
-            if (DistanceToPath(b.center, path) > 12f && DistanceToPath(b.min, path) > 10f && DistanceToPath(b.max, path) > 10f)
+            var mesh = mf.sharedMesh;
+            if (mesh == null) continue;
+            var v = mesh.vertices;
+            var ok = new bool[v.Length];
+            for (int i = 0; i < v.Length; i++)
             {
-                k.gameObject.SetActive(false);
-                off++;
+                float d = DistanceToPath(mf.transform.TransformPoint(v[i]), path);
+                ok[i] = d >= 6f && d <= 9.5f;
             }
+
+            var clipped = Object.Instantiate(mesh);
+            clipped.name = mesh.name + " (trimmed)";
+            int kept = 0, total = 0;
+            for (int sub = 0; sub < mesh.subMeshCount; sub++)
+            {
+                var tris = mesh.GetTriangles(sub);
+                var keep = new List<int>(tris.Length);
+                for (int t = 0; t < tris.Length; t += 3)
+                    if (ok[tris[t]] && ok[tris[t + 1]] && ok[tris[t + 2]]) { keep.Add(tris[t]); keep.Add(tris[t + 1]); keep.Add(tris[t + 2]); }
+                clipped.SetTriangles(keep, sub);
+                kept += keep.Count;
+                total += tris.Length;
+            }
+            if (kept == total) { Object.DestroyImmediate(clipped); continue; }
+            changed++;
+            if (kept == 0) { mf.gameObject.SetActive(false); Object.DestroyImmediate(clipped); continue; }
+            mf.sharedMesh = clipped;
         }
-        return off;
+        return changed;
     }
 
     // ------------------------------------------------------------------ barriers
