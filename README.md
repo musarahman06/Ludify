@@ -143,6 +143,8 @@ real classes and help improve it, so K-12 teachers only see features that alread
 - Rewards are **coins plus a helper star**, and stars earn titles: Newcomer → Neighbor → Helper → Local Hero → City Legend.
 
 ### 🌾 Suburb and farm jobs
+<img src="docs/images/farm.jpg" alt="The farm with its red barn, silos and windmill, the suburbs behind, and the cherry-blossom gallery across the river" width="100%">
+
 Five job-givers each run a minigame, with questions built in:
 
 | Job | Giver | How it works | Reward |
