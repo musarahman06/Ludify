@@ -167,6 +167,11 @@ Touches the gameplay area (scene, player camera, render settings). Gameplay team
 - World colliders (buildings, barriers, stands, pit lane, trees, road props, track surface) are added automatically
   to the in-memory scene on Play/build by `Editor/WorldCollidersSceneProcessor.cs` → `RuntimeWorldColliders`.
   No scene edits. Cars are set up at runtime on scene load.
+- `WorldDressing` (same scene processor, in-memory only): the 4 floating bridge tiles are replaced by **arched,
+  walkable bridges** (road level at both banks, ~6 m rise mid-river, side walls, mesh collider); **rolling hills
+  with ~260 trees** in a 220 m ring around the map (river valley kept open, water extended); **invisible walls**
+  around the playable terrain. `FallGuard` on the player and cars resets them to spawn if they end up >3 m below
+  the terrain.
 
 **Next**
 - Decide how Chromebooks will run the game (WebGL, Android or Linux build); Low tier is safe for all three.
