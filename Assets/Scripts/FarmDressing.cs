@@ -79,9 +79,22 @@ public static class FarmDressing
         Vector3 farmhouse = house.transform.childCount > 0 ? house.transform.GetChild(0).position : house.transform.position;
         foreach (Transform t in house.transform) if (t.name.StartsWith("Farmhouse")) farmhouse = t.position;
 
-        // Farm extent from the crop grid.
-        Bounds farm = new Bounds(crops.transform.GetChild(0).position, Vector3.zero);
-        foreach (Transform c in crops.transform) farm.Encapsulate(c.position);
+        // Keep off the extended race track (and the old west farm it replaced).
+        var track = FindIn(scene, TrackExtension.RootName);
+        if (track != null)
+            foreach (var r in track.GetComponentsInChildren<Renderer>()) { var b = r.bounds; b.Expand(new Vector3(8f, 0f, 8f)); blocked.Add(b); }
+        foreach (var g in TrackExtension.GreenRects)
+            blocked.Add(new Bounds(new Vector3(g.center.x, 0f, g.center.y), new Vector3(g.width, 200f, g.height)));
+
+        // Farm extent from the (remaining) crop grid.
+        Bounds farm = new Bounds(Vector3.zero, Vector3.zero);
+        bool any = false;
+        foreach (Transform c in crops.transform)
+        {
+            if (!c.gameObject.activeSelf) continue;
+            if (!any) { farm = new Bounds(c.position, Vector3.zero); any = true; } else farm.Encapsulate(c.position);
+        }
+        if (!any) return;
         farm.Expand(new Vector3(CellX, 0f, CellZ));
         if (!float.IsNegativeInfinity(trackMaxZ) && farm.min.z < trackMaxZ + 4f)
             farm.SetMinMax(new Vector3(farm.min.x, farm.min.y, trackMaxZ + 4f), farm.max);   // stop short of the track
@@ -99,7 +112,7 @@ public static class FarmDressing
         foreach (var t in root.GetComponentsInChildren<Transform>(true)) t.gameObject.isStatic = true;
 
         var ground = go.AddComponent<FarmGround>();
-        ground.Setup(new Rect(farm.min.x, farm.min.z, farm.size.x, farm.size.z), dirtStrips, a.Green, a.Dirt);
+        ground.Setup(new Rect(farm.min.x, farm.min.z, farm.size.x, farm.size.z), dirtStrips, a.Green, a.Dirt, TrackExtension.GreenRects);
         Debug.Log($"[FarmDressing] Built farm dressing: {root.GetComponentsInChildren<Renderer>().Length} props.");
     }
 
@@ -427,13 +440,15 @@ public class FarmGround : MonoBehaviour
     [SerializeField] Rect farmRect;
     [SerializeField] List<Rect> dirtStrips = new List<Rect>();
     [SerializeField] TerrainLayer green, dirt;
+    [SerializeField] List<Rect> grassRects = new List<Rect>();
 
-    public void Setup(Rect farm, List<Rect> strips, TerrainLayer greenLayer, TerrainLayer dirtLayer)
+    public void Setup(Rect farm, List<Rect> strips, TerrainLayer greenLayer, TerrainLayer dirtLayer, List<Rect> extraGrass = null)
     {
         farmRect = farm;
         dirtStrips = strips;
         green = greenLayer;
         dirt = dirtLayer;
+        grassRects = extraGrass != null ? new List<Rect>(extraGrass) : new List<Rect>();
     }
 
     void Awake()
@@ -448,7 +463,12 @@ public class FarmGround : MonoBehaviour
         var col = terrain.GetComponent<TerrainCollider>();
         if (col != null) col.terrainData = data;
 
-        Vector3 origin = terrain.GetPosition();
+        Paint(data, terrain.GetPosition(), farmRect, dirtStrips, gi, di);
+        foreach (var r in grassRects) Paint(data, terrain.GetPosition(), r, null, gi, di);   // e.g. the old west farm, now grass
+    }
+
+    static void Paint(TerrainData data, Vector3 origin, Rect farmRect, List<Rect> dirtStrips, int gi, int di)
+    {
         Vector3 size = data.size;
         int res = data.alphamapResolution, layers = data.alphamapLayers;
         int x0 = Mathf.Clamp(Mathf.FloorToInt((farmRect.xMin - origin.x) / size.x * res), 0, res - 1);
@@ -468,7 +488,8 @@ public class FarmGround : MonoBehaviour
                 float blend = Mathf.Clamp01(edge / border);
                 if (blend <= 0f) continue;
                 bool isDirt = false;
-                foreach (var s in dirtStrips) if (s.Contains(new Vector2(wx, wz))) { isDirt = true; break; }
+                if (dirtStrips != null)
+                    foreach (var s in dirtStrips) if (s.Contains(new Vector2(wx, wz))) { isDirt = true; break; }
                 int target = isDirt ? di : gi;
                 for (int l = 0; l < layers; l++)
                     map[j, i, l] = Mathf.Lerp(map[j, i, l], l == target ? 1f : 0f, blend);

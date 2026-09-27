@@ -21,6 +21,17 @@ class WorldCollidersSceneProcessor : IProcessSceneWithReport
         var assets = LoadDressingAssets();
         if (assets != null) WorldDressing.Build(scene, assets);
 
+        // The extended track goes first so the farm keeps clear of it.
+        var track = new TrackExtension.Assets
+        {
+            NewPath = Resources.Load<TextAsset>("LudifyTrackPath"),
+            OldPath = AssetDatabase.LoadAssetAtPath<TextAsset>("Assets/Terrain/Track/f1_path.txt"),
+            Asphalt = AssetDatabase.LoadAssetAtPath<Material>("Assets/Terrain/Track/Mat_F1_Asphalt.mat"),
+            Kerb = AssetDatabase.LoadAssetAtPath<Material>("Assets/Terrain/Track/Mat_F1_Kerb.mat"),
+            Embankment = AssetDatabase.LoadAssetAtPath<Material>("Assets/Terrain/Mat_Bridge_Concrete.mat"),
+        };
+        if (track.NewPath != null && track.Asphalt != null) TrackExtension.Build(scene, track);
+
         var farm = LoadFarmAssets();
         if (farm != null) FarmDressing.Build(scene, farm);
     }

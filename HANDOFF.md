@@ -217,6 +217,30 @@ ChromeOS device to test on). The runtime file picker relies on desktop file acce
 
 ---
 
+## 2026-09-27: therishonsingh (track extension, catch wall, sponsor boards)
+
+**Musa, heads-up:** `Assets/Scripts/TimeTrial/Resources/LudifyTrackPath.txt` now holds the **extended** centreline
+(493 points, 2 m apart, 987 m lap, same start line). Your `TrackPath`/checkpoints use it unchanged; no code of yours was
+edited. The original loop is still in `Assets/Terrain/Track/f1_path.txt`.
+
+**Done**
+- `TrackExtension` (in memory, via the scene processor; saved scene untouched) rebuilds the circuit from that file. The west half
+  of the farm is gone, and the track now turns north up a long straight, through a right-left chicane, into a **banked 180°
+  left-hander** (radius 20 m, 10° banking, embankment on the outside), then comes back south to rejoin the old SW corner.
+  - The whole asphalt is one new mesh (the old one is hidden). New kerbs go on the new corners; old kerbs and barriers from the removed
+    corner are switched off; new red/white barriers line the new section.
+  - A 1.5 m-high **catch wall** (with collider) runs round the outside of the banked corner, its entry and its exit,
+    so cars can't fly off the banking.
+  - **Sponsor boards**, F1 style: fictional brands (VOLTEX, ZEPHYRA, Quantix, NOVA-X FUEL, Kestrel Timing, BRIGHTPEAK,
+    Orbitron Energy, Pixel Cola, LUDIFY, HEXA TYRES) on every 6th barrier and as banners along the catch wall (TMP text).
+  - Grid cars now face the racing direction (east).
+- Time trial: **2 questions per lap** (one in each half of the lap, at random points). This is a small edit in Musa's
+  `TimeTrialManager.StartLap`/trigger check, and the "Two per lap" wording in `TimeTrialHud`.
+- Getting into a car hides the other grid cars, and they reappear, parked, when you get out (`VehicleInteraction`).
+  - `FarmDressing` stays clear of the new track; the old west farm and corner are painted as grass.
+
+---
+
 ## 2026-09-27: therishonsingh (suburb + farm jobs / minigames)
 
 Built on Musa's City Life quest pattern, but as a separate module in `Assets/Scripts/Jobs/`. **None of Musa's or Ben's
