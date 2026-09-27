@@ -93,6 +93,11 @@ namespace Ludify.Gallery
         public static void FixUpCityLife()
         {
             CityColorizer.Buildings.RemoveAll(b => Contains(b.Bounds.center));
+            // CityNav blocks out every building's volume; drop the blockers for buildings we removed.
+            GameObject blockers = GameObject.Find("_CityLife/BuildingBlockers");
+            if (blockers != null)
+                foreach (Transform blocker in blockers.transform.Cast<Transform>().ToList())
+                    if (Contains(blocker.position)) Object.DestroyImmediate(blocker.gameObject);
             GameObject cityLife = GameObject.Find("_CityLife");
             NavMeshSurface surface = cityLife != null ? cityLife.GetComponent<NavMeshSurface>() : null;
             if (surface != null) surface.BuildNavMesh();
