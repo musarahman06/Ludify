@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using Ludify.Import;
 using TMPro;
 using UnityEngine;
@@ -13,6 +14,7 @@ namespace Ludify.Map
         MapSystem _map;
         RectTransform _mapRect, _player;
         TextMeshProUGUI _status;
+        readonly List<(FastTravelPoint Point, RectTransform Marker)> _markers = new List<(FastTravelPoint, RectTransform)>();
 
         public static FullMapView Create(MapSystem map, Transform canvas)
         {
@@ -38,6 +40,8 @@ namespace Ludify.Map
             image.raycastTarget = false;
 
             foreach (FastTravelPoint point in map.Points) AddMarker(point);
+            RebuildMarkers();
+            MapMarkers.Changed += RebuildMarkers;
 
             _player = UiKit.Image("Player", _mapRect, Color.white, UiKit.ArrowSprite).rectTransform;
             _player.anchorMin = _player.anchorMax = Vector2.zero;
@@ -57,7 +61,19 @@ namespace Ludify.Map
             UiKit.Place(help.rectTransform, new Vector2(0.5f, 0f), new Vector2(0, 6), new Vector2(600, 28));
         }
 
-        void AddMarker(FastTravelPoint point)
+        void OnDestroy() => MapMarkers.Changed -= RebuildMarkers;
+
+        /// <summary>Recreate the markers from <see cref="MapMarkers"/> (runtime points such as quest NPCs).</summary>
+        void RebuildMarkers()
+        {
+            foreach (var (_, marker) in _markers)
+                if (marker != null) Destroy(marker.gameObject);
+            _markers.Clear();
+            foreach (FastTravelPoint point in MapMarkers.All) _markers.Add((point, AddMarker(point)));
+            if (_player != null) _player.SetAsLastSibling(); // keep the player arrow on top
+        }
+
+        RectTransform AddMarker(FastTravelPoint point)
         {
             Vector2 uv = _map.Snapshot.WorldToUv(point.Position);
             RectTransform marker = UiKit.Rect(point.Name, _mapRect);
@@ -68,13 +84,14 @@ namespace Ludify.Map
             ((Image)dot.targetGraphic).sprite = UiKit.CircleSprite;
             ((Image)dot.targetGraphic).type = Image.Type.Simple;
             UiKit.Stretch((RectTransform)dot.transform);
-            TextMeshProUGUI letter = UiKit.Text("Letter", dot.transform, point.Name.Substring(0, 1), 24);
+            TextMeshProUGUI letter = UiKit.Text("Letter", dot.transform, point.IconText, 24);
             letter.fontStyle = FontStyles.Bold;
             UiKit.Stretch(letter.rectTransform);
 
             // Name label under the dot; also clickable.
             Button label = UiKit.Button("Label", marker, point.Name, 20, () => _map.RequestTravel(point), new Color(0, 0, 0, 0.7f));
             UiKit.Place((RectTransform)label.transform, new Vector2(0.5f, 0f), new Vector2(0, -34), new Vector2(170, 32));
+            return marker;
         }
 
         public void SetStatus(string text) => _status.text = text;
@@ -83,6 +100,9 @@ namespace Ludify.Map
         {
             Transform focus = _map.Focus;
             if (focus == null) return;
+            MapMarkers.UpdatePositions();
+            foreach (var (point, marker) in _markers)
+                marker.anchorMin = marker.anchorMax = _map.Snapshot.WorldToUv(point.Position);
             Vector2 uv = _map.Snapshot.WorldToUv(focus.position);
             _player.anchoredPosition = new Vector2(uv.x * _mapRect.rect.width, uv.y * _mapRect.rect.height);
             _player.localRotation = Quaternion.Euler(0, 0, -focus.eulerAngles.y);

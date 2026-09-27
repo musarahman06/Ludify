@@ -5,6 +5,45 @@ Keep each entry short: what changed, what's half-done, what's next, anything tha
 
 ---
 
+## 2026-09-26 (5): musarahman (City Life: NPCs, little quests, coins & stars, colorful buildings)
+
+Everything installs itself at runtime in CityMap (`CityLifeBootstrap`). **No scene or teammate files edited.**
+Code is in `Assets/Scripts/City/`.
+
+**Done**
+- `CityColorizer`: every city building (Downtown/Inner/City Outskirts) gets one of 10 hue-shifted copies of the Kenney
+  atlas. The choice is seeded by position so it's the same every run, and no two neighbours share a color. Suburbs are unchanged.
+- The runtime NavMesh (`NavMeshSurface`, physics colliders, east bank only) builds in about 40 ms.
+  16 residents are cloned from the player's look with random shirt, pants, skin, hair and shoes, and wander the city (`Npc`, `NpcFactory`).
+- Quests (`QuestManager`, `QuestTemplates`, `QuestTargets`): lost pet (cat/dog with a paw-print trail and a
+  "Meow!"/"Woof!" bubble), lost item (sparkles), 5 scattered pages, and parcel delivery. Head icons: yellow **!** = quest,
+  blue **?** = hint (3 per quest, getting more precise: area → building color → direction), green **!** = turn in.
+  Walk up and press **E** to talk or pick up (blocked in a car, during a time trial, or when the map or a prompt is open).
+  Talk to the quest giver again to give up.
+- Rewards: coins (pet 40, item 30, pages 50, delivery 25) + 1 star. Titles are Newcomer / Neighbor (1) / Helper (3) /
+  Local Hero (6) / City Legend (10). The coin and star wallet with the quest tracker is top-right (`CityHud`). Progress is saved to
+  `<persistentDataPath>/Progress/player_progress.json`.
+
+- Paw prints follow the street route (NavMesh path) the pet took from its owner, over the last 70 m. They're
+  bigger, with dark pads and a light halo so they show on both roads and pavements.
+- A picked-up pet follows you on its own NavMeshAgent, so it stays on the ground and walks around buildings. It runs to keep up,
+  hides while you're in a car, and pops back beside you after fast travel or when you get out.
+- NPCs with a quest are marked on the minimap and full map with a yellow **!**; the person to return to gets a green **!**.
+  Click a marker on the full map to fast travel there (same practice-question gate). Offers stay marked while
+  you're on another quest; talking to them then says to come back later.
+
+**Map changes (BenJPanackal's folder, `Assets/Ludify/Map/`, please review)**
+- New `MapMarkers` (static add/remove list of runtime `FastTravelPoint`s, with a `Changed` event).
+  `MinimapView` and `FullMapView` draw these alongside the fixed points and move them every frame.
+- `FastTravelPoint` gained `Glyph` (icon text, defaults to the first letter) and `Follow` (the marker tracks a
+  transform; you land 2.5 m in front of it, facing it). Existing points behave exactly as before.
+
+**Notes**
+- The UI font (LiberationSans SDF) has no ★ glyph, so the star is a procedural sprite.
+- Coins aren't spent on anything yet.
+
+---
+
 ## 2026-09-26 (4): BenJPanackal (minimap, full map, question-gated fast travel)
 
 Touches the gameplay area (map/HUD/player position), but **no gameplay files or scenes were edited**.

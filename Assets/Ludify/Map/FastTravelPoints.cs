@@ -13,6 +13,12 @@ namespace Ludify.Map
         /// <summary>Facing actually used by the last arrival (set by <see cref="FastTravel"/>).</summary>
         public Quaternion ArrivalFacing = Quaternion.identity;
         public Color Color;
+        /// <summary>Text on the map icon. Defaults to the first letter of <see cref="Name"/>.</summary>
+        public string Glyph;
+        /// <summary>If set, the point moves with this object (see <see cref="MapMarkers"/>).</summary>
+        public Transform Follow;
+
+        public string IconText => string.IsNullOrEmpty(Glyph) ? Name.Substring(0, 1) : Glyph;
     }
 
     /// <summary>
