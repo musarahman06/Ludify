@@ -183,7 +183,7 @@ public static class JobPlaces
         float x = sumX / houses.Count;
         var spine = GameObject.Find("WestSpine");
         if (spine != null) x = JobProps.BoundsOf(spine).max.x + 2.5f;
-        return JobProps.ClearSpot(new Vector3(x, 0f, minZ - 4f), new Vector3(0.5f, 1f, 0.5f), null, 20f);
+        return JobProps.ClearSpot(new Vector3(x, 0f, minZ - 4f), new Vector3(0.5f, 1f, 0.5f), JobProps.RendererBounds(TrackExtension.RootName), 20f);
     }
 
     /// <summary>The house near the middle of the suburbs with the deepest, widest front garden.</summary>

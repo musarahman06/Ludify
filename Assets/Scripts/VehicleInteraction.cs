@@ -71,6 +71,7 @@ public class VehicleInteraction : MonoBehaviour
         player.SetActive(false);
         playerCameraDistance = orbitCamera.distance;
         orbitCamera.SetTarget(car.transform, carCameraDistance);
+        SetOtherCarsVisible(car, false);   // an empty track while you race
         CarEntered?.Invoke(car);
     }
 
@@ -88,7 +89,15 @@ public class VehicleInteraction : MonoBehaviour
         player.transform.SetPositionAndRotation(spot, Quaternion.LookRotation(car.transform.forward, Vector3.up));
         player.SetActive(true);
         orbitCamera.SetTarget(player.transform, playerCameraDistance);
+        SetOtherCarsVisible(car, true);    // the other cars come back, parked where they were
         CarExited?.Invoke(car);
+    }
+
+    /// <summary>Hides (or restores) every car except the one being driven.</summary>
+    void SetOtherCarsVisible(CarController driven, bool visible)
+    {
+        foreach (var c in cars)
+            if (c != null && c != driven) c.gameObject.SetActive(visible);
     }
 
     void OnGUI()

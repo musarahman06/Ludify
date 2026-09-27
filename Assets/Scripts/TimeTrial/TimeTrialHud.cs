@@ -206,7 +206,7 @@ public static class TimeTrialHud
         bool exhausted = tt.HasQuiz && tt.QuestionsLeft == 0;
         if (!tt.HasQuiz) info = "Racing without questions.";
         else if (exhausted) info = $"You've answered every question from \"{Truncate(tt.Topic ?? "this lecture", 40)}\". Import a new lecture for fresh questions.";
-        else info = $"Questions from \"{Truncate(tt.Topic ?? "your lecture", 40)}\": {tt.QuestionsLeft} of {tt.QuestionsTotal} unused. One per lap, never repeated.";
+        else info = $"Questions from \"{Truncate(tt.Topic ?? "your lecture", 40)}\": {tt.QuestionsLeft} of {tt.QuestionsTotal} unused. Two per lap, never repeated.";
         float infoH = body.CalcHeight(new GUIContent(info), iw);
         bool fewLeft = tt.HasQuiz && !exhausted && tt.QuestionsLeft < TimeTrialManager.LapOptions[1];
         float h = 60f + infoH + 10f + (string.IsNullOrEmpty(tt.ImportError) ? 0f : 36f) + 66f

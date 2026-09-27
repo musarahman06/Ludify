@@ -5,8 +5,8 @@ using UnityEngine;
 using UnityEngine.InputSystem;
 
 /// <summary>
-/// Knowledge Time Trial: getting into a car on the circuit starts a 3- or 5-lap race (player's choice). Once per lap,
-/// at a random point, the game drops into slow motion and asks a question from the imported lecture. Each question is
+/// Knowledge Time Trial: getting into a car on the circuit starts a 3- or 5-lap race (player's choice). Twice per lap,
+/// at random points, the game drops into slow motion and asks a question from the imported lecture. Each question is
 /// only ever asked once (tracked per lecture in <see cref="UsedQuestions"/>). Right answers give a speed boost;
 /// wrong answers (or running out of time) slow the car and add 3 s. Best lap and best total are saved.
 /// Created at runtime by <see cref="RuntimeWorldColliders"/>; the HUD is drawn by <see cref="TimeTrialHud"/>.
@@ -72,8 +72,11 @@ public class TimeTrialManager : MonoBehaviour
     readonly List<McQuestion> pool = new List<McQuestion>();
     readonly List<float> lapTimes = new List<float>();
     float countdownStart, raceStartTime, lapStartTime, finishTime;
-    int lastProgress, checkpoints, questionTrigger;
-    bool questionAskedThisLap;
+    int lastProgress, checkpoints;
+    /// <summary>Two questions per lap: one in each half, at a random point (track progress indices).</summary>
+    const int QuestionsPerLap = 2;
+    readonly int[] questionTriggers = new int[QuestionsPerLap];
+    int questionsAskedThisLap;
     float wrongWayTimer;
     float questionStart, resultUntil;
     float targetScale = 1f, baseFixedDelta;
@@ -233,9 +236,10 @@ public class TimeTrialManager : MonoBehaviour
     void StartLap()
     {
         checkpoints = 0;
-        questionAskedThisLap = false;
-        // One question per lap, somewhere between 20% and 85% of the way round.
-        questionTrigger = Random.Range(Mathf.RoundToInt(track.Count * 0.2f), Mathf.RoundToInt(track.Count * 0.85f));
+        questionsAskedThisLap = 0;
+        // Two questions per lap: one between 15% and 45% of the way round, one between 55% and 88%.
+        questionTriggers[0] = Random.Range(Mathf.RoundToInt(track.Count * 0.15f), Mathf.RoundToInt(track.Count * 0.45f));
+        questionTriggers[1] = Random.Range(Mathf.RoundToInt(track.Count * 0.55f), Mathf.RoundToInt(track.Count * 0.88f));
     }
 
     void Update()
@@ -302,7 +306,8 @@ public class TimeTrialManager : MonoBehaviour
         }
 
         // Question trigger.
-        if (pool.Count > 0 && !questionAskedThisLap && smooth && lastProgress < questionTrigger && progress >= questionTrigger)
+        int trigger = questionsAskedThisLap < QuestionsPerLap ? questionTriggers[questionsAskedThisLap] : int.MaxValue;
+        if (pool.Count > 0 && smooth && lastProgress < trigger && progress >= trigger)
         {
             AskQuestion();
             lastProgress = progress;
@@ -353,7 +358,7 @@ public class TimeTrialManager : MonoBehaviour
         Question = pool[pool.Count - 1];
         pool.RemoveAt(pool.Count - 1);
         UsedQuestions.MarkUsed(bank.Id, Question.Id ?? Question.Prompt);   // never asked again, even in later races
-        questionAskedThisLap = true;
+        questionsAskedThisLap++;
         CurrentState = State.Question;
         questionStart = Time.unscaledTime;
         Answered = false;
