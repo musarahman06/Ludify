@@ -9,11 +9,13 @@ using UnityEngine.AI;
 [RequireComponent(typeof(NavMeshAgent))]
 public class Npc : MonoBehaviour
 {
-    public enum Icon { None, QuestAvailable, Hint, TurnIn }
+    public enum Icon { None, QuestAvailable, Hint, TurnIn, Shop }
 
     public string DisplayName { get; set; }
     public Icon CurrentIcon { get; private set; }
     public bool IsTalking { get; private set; }
+    /// <summary>Stands in one place (e.g. the shopkeeper) instead of wandering.</summary>
+    public bool Stationary { get; private set; }
 
     NavMeshAgent agent;
     Transform leftLeg, rightLeg, leftArm, rightArm, visual;
@@ -21,6 +23,7 @@ public class Npc : MonoBehaviour
     float idleUntil, walkPhase;
     bool idling = true;
     Transform faceTarget;
+    Quaternion homeRotation;
 
     const float WanderRadius = 35f;
 
@@ -55,8 +58,17 @@ public class Npc : MonoBehaviour
             case Icon.QuestAvailable: iconText.text = "!"; iconText.color = new Color(1f, 0.82f, 0.2f); break;
             case Icon.Hint: iconText.text = "?"; iconText.color = new Color(0.45f, 0.85f, 1f); break;
             case Icon.TurnIn: iconText.text = "!"; iconText.color = new Color(0.4f, 1f, 0.45f); break;
+            case Icon.Shop: iconText.text = "$"; iconText.color = new Color(1f, 0.5f, 0.75f); break;
             default: iconText.text = ""; break;
         }
+    }
+
+    /// <summary>Stay put facing the current direction (no NavMesh needed).</summary>
+    public void MakeStationary()
+    {
+        Stationary = true;
+        homeRotation = transform.rotation;
+        agent.enabled = false;
     }
 
     /// <summary>Stop walking and face someone while a conversation is open.</summary>
@@ -64,20 +76,30 @@ public class Npc : MonoBehaviour
     {
         IsTalking = true;
         faceTarget = other;
-        if (agent.isOnNavMesh) agent.isStopped = true;
+        if (agent.enabled && agent.isOnNavMesh) agent.isStopped = true;
     }
 
     public void EndTalk()
     {
         IsTalking = false;
         faceTarget = null;
-        if (agent.isOnNavMesh) agent.isStopped = false;
+        if (agent.enabled && agent.isOnNavMesh) agent.isStopped = false;
         idling = true;
         idleUntil = Time.time + Random.Range(1f, 3f);
     }
 
     void Update()
     {
+        if (Stationary)
+        {
+            Vector3 look = IsTalking && faceTarget != null ? faceTarget.position - transform.position : homeRotation * Vector3.forward;
+            look.y = 0f;
+            if (look.sqrMagnitude > 0.01f)
+                transform.rotation = Quaternion.Slerp(transform.rotation, Quaternion.LookRotation(look), 6f * Time.deltaTime);
+            Animate();
+            Billboard();
+            return;
+        }
         if (agent == null || !agent.isOnNavMesh) return;
 
         if (IsTalking && faceTarget != null)
@@ -117,7 +139,7 @@ public class Npc : MonoBehaviour
 
     void Animate()
     {
-        float speed = IsTalking ? 0f : agent.velocity.magnitude;
+        float speed = IsTalking || Stationary ? 0f : agent.velocity.magnitude;
         bool moving = speed > 0.15f;
         walkPhase = moving ? walkPhase + Time.deltaTime * 7f * Mathf.Clamp(speed / 1.8f, 0.6f, 1.6f)
                            : Mathf.Lerp(walkPhase, 0f, Time.deltaTime * 6f);

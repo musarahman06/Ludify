@@ -35,13 +35,15 @@ public class CityHud : MonoBehaviour
         var coinInner = UiKit.Image("CoinInner", coinIcon.transform, new Color(0.85f, 0.6f, 0.1f), UiKit.RingSprite);
         UiKit.Stretch(coinInner.rectTransform, 5f);
         coins = UiKit.Text("Coins", coinGroup, "0", 36, TextAlignmentOptions.Left, Color.white);
-        UiKit.Place(coins.rectTransform, new Vector2(0f, 1f), new Vector2(76f, -10f), new Vector2(244f, 48f));
+        UiKit.Place(coins.rectTransform, new Vector2(0f, 1f), new Vector2(76f, -10f), new Vector2(150f, 48f));
         coins.fontStyle = FontStyles.Bold;
 
         var starIcon = UiKit.Image("Star", coinGroup, new Color(1f, 0.85f, 0.35f), StarSprite);
         UiKit.Place(starIcon.rectTransform, new Vector2(0f, 1f), new Vector2(28f, -64f), new Vector2(28f, 28f));
         stars = UiKit.Text("Stars", coinGroup, "", 20, TextAlignmentOptions.Left, new Color(1f, 0.85f, 0.35f));
         UiKit.Place(stars.rectTransform, new Vector2(0f, 1f), new Vector2(76f, -62f), new Vector2(250f, 32f));
+        var shopHint = UiKit.Text("ShopHint", coinGroup, "[B] Shop", 18, TextAlignmentOptions.Right, new Color(1f, 0.6f, 0.8f));
+        UiKit.Place(shopHint.rectTransform, new Vector2(0f, 1f), new Vector2(226f, -20f), new Vector2(100f, 30f));
         stars.enableAutoSizing = true;   // "City Legend" is long
         stars.fontSizeMin = 14f;
         stars.fontSizeMax = 20f;

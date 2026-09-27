@@ -40,6 +40,8 @@ public static class NpcFactory
         visual.transform.localPosition = Vector3.zero;
         visual.transform.localRotation = Quaternion.identity;
         foreach (var col in visual.GetComponentsInChildren<Collider>()) Object.Destroy(col);
+        Wardrobe.RemoveAccessories(visual.transform);   // residents don't copy the player's hats/glasses
+        foreach (var r in visual.GetComponentsInChildren<MeshRenderer>(true)) r.enabled = true;
 
         Material template = player.visualRoot.GetComponentInChildren<MeshRenderer>().sharedMaterial;
         Color shirt = Pick(Shirts), pants = Pick(Pants), skin = Pick(Skins), hair = Pick(Hair), shoes = Pick(Shoes);

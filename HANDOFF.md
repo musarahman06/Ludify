@@ -67,6 +67,15 @@ Code is in `Assets/Scripts/City/`.
     light pillar with "?" marks that building on the street side facing the target.
   - Targets now spawn 40–120 m from the quest giver (was 60–180 m).
 
+- Clothing store (`Wardrobe`, `StoreView`, `ClothingShop`): about 35 shirts, hats, glasses, pants and shoes (15–150 coins),
+  with stripes, caps, beanie, cowboy/top/party hat, crown, round/sun/3D/star glasses, shorts and sneakers. They're
+  low-poly pieces (`Accessory_<slot>_*`) added to the player's VisualRoot. Open it from Stella the shopkeeper's stall downtown
+  (E; pink "$" on the maps) or anywhere on foot with **B**. Click to try on, buy with coins, wear what you own. It has a
+  live preview (the character is drawn alone on layer 31 while the store is open). Owned and equipped items are saved in
+  `player_progress.json`. The outfit is applied after residents are cloned, so NPCs don't copy it.
+- Time trial: +5 coins per correct lap question (`TimeTrialManager.CoinsPerCorrect`); "Coins earned" shows on the
+  finish panel.
+
 **Map changes (BenJPanackal's folder, `Assets/Ludify/Map/`, please review)**
 - New `MapMarkers` (static add/remove list of runtime `FastTravelPoint`s, with a `Changed` event).
   `MinimapView` and `FullMapView` draw these alongside the fixed points and move them every frame.
