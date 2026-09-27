@@ -1,4 +1,6 @@
 using System;
+using System.Linq;
+using System.Collections.Generic;
 using System.IO;
 using System.Security.Cryptography;
 using System.Text;
@@ -40,6 +42,57 @@ namespace Ludify.Import
             }, ct);
 
             return await ImportContentAsync(lesson, id, progress, forceRegenerate, ct);
+        }
+
+        /// <summary>
+        /// Generates one question set from everything in a subject bundle (texts combined, PDFs and images
+        /// attached) with the usual research + questions calls. Cached by the combined content.
+        /// </summary>
+        public async Task<QuestionBank> ImportBundleAsync(SubjectBundle bundle, IProgress<string> progress = null,
+                                                          bool forceRegenerate = false, CancellationToken ct = default)
+        {
+            const long MaxAttachmentBytes = 18 * 1024 * 1024;
+            _ = QuestionBankStore.Folder;
+            var items = LibraryStore.ItemsIn(bundle).ToList();
+            if (items.Count == 0) throw new ImportException("This bundle is empty. Drag some lectures into it first.");
+            progress?.Report($"Reading {items.Count} item(s)…");
+
+            var paths = items.Select(i => (i.Title, Path: LibraryStore.PathOf(i))).ToList();
+            var (lesson, id) = await Task.Run(() =>
+            {
+                var text = new StringBuilder();
+                var attachments = new List<(byte[], string)>();
+                long total = 0;
+                using (var sha = SHA256.Create())
+                {
+                    foreach (var (title, path) in paths)
+                    {
+                        if (!File.Exists(path)) continue;
+                        LessonContent c = LessonReaderFactory.Read(path);
+                        if (!string.IsNullOrWhiteSpace(c.Text))
+                            text.Append("=== ").Append(title).Append(" ===\n").Append(c.Text).Append("\n\n");
+                        foreach (var (data, mime) in new[] { (c.PdfBytes, "application/pdf"), (c.ImageBytes, c.ImageMimeType) })
+                        {
+                            if (data == null || total + data.Length > MaxAttachmentBytes) continue;
+                            attachments.Add((data, mime));
+                            total += data.Length;
+                        }
+                        byte[] raw = File.ReadAllBytes(path);
+                        sha.TransformBlock(raw, 0, raw.Length, null, 0);
+                    }
+                    byte[] settings = Encoding.UTF8.GetBytes($"|bundle|{PipelineVersion}|{_config.Model}|{_config.QuestionsPerFile}");
+                    sha.TransformFinalBlock(settings, 0, settings.Length);
+                    string hash = BitConverter.ToString(sha.Hash, 0, 12).Replace("-", "").ToLowerInvariant();
+                    return (new LessonContent { FileName = bundle.Name, Text = text.ToString(), Attachments = attachments }, hash);
+                }
+            }, ct);
+
+            QuestionBank bank = await ImportContentAsync(lesson, id, progress, forceRegenerate, ct);
+            bank.BundleId = bundle.Id;
+            bank.Subject = bundle.Subject.ToString();
+            QuestionBankStore.Save(bank);
+            LibraryStore.RecordGenerated(bundle, bank);
+            return bank;
         }
 
         /// <summary>Lecture notes pasted as text (e.g. copied from a PDF, Word doc or slides).</summary>
@@ -94,6 +147,7 @@ namespace Ludify.Import
                 CreatedUtc = DateTime.UtcNow,
                 Model = _config.Model,
                 Topic = generated.Topic,
+                Subject = generated.Subject,
                 Summary = generated.Summary,
                 KeyConcepts = generated.KeyConcepts,
                 Sources = research.Sources,

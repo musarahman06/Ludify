@@ -2,7 +2,8 @@
     "name": "Ludify.Import.Editor",
     "rootNamespace": "Ludify.Import.Editor",
     "references": [
-        "Ludify.Import"
+        "Ludify.Import",
+        "Unity.TextMeshPro"
     ],
     "includePlatforms": [
         "Editor"

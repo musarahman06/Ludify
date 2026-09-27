@@ -19,6 +19,7 @@ rather than editing their files.
 | File import → 3D pipeline | BenJPanackal (import team) | `Assets/Ludify/Import/`, `Server/` |
 | Minimap / full map / fast travel | BenJPanackal (built on request; gameplay teammate may take over) | `Assets/Ludify/Map/` |
 | Outdoor art gallery (image → 3D exhibits) | BenJPanackal | `Assets/Ludify/Gallery/` |
+| Esc menu, UI theme, subject library | BenJPanackal | `Assets/Ludify/Menu/`, `Assets/Ludify/Import/UI/Theme/`, `Assets/Ludify/Import/Library/` |
 
 - Import code uses the `Ludify.Import` namespace and is tested in its own scene
   (`Assets/Ludify/Import/Scenes/ImportTest.unity`). **Do not edit gameplay scenes to test import.**
@@ -62,6 +63,12 @@ tooling but must never be on the runtime path. Teachers use the built game.
 **API keys never go in the repo.** Each developer uses their own free Gemini key via the
 `GEMINI_API_KEY` env var or a gitignored `ludify_secrets.json` in the project root
 (copy `ludify_secrets.example.json`). Don't read, print, or log key values.
+
+## UI theme (everyone)
+Build UI with `UiKit` and its colours (`UiKit.PanelColor`, `AccentColor`, `ButtonColor`, `TextColor`,
+`MutedTextColor`), not hard-coded colours. Then screens follow the reference look (cream panels, chunky
+buttons, Fredoka font) and the **current subject's colours**. Leave text colour unset to get automatic contrast.
+`UiKit.Button(..., icon: ThemeArt.Icon("gear"))` adds the reference's icon block.
 
 ## Collaboration rules
 

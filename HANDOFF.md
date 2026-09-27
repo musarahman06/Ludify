@@ -5,6 +5,30 @@ Keep each entry short: what changed, what's half-done, what's next, anything tha
 
 ---
 
+## 2026-09-27 (4): BenJPanackal (themed UI, Esc menu, subject bundles)
+
+**Done** (no teammate files edited)
+- **New UI look** from the reference: cream rounded panels with shadows, chunky pill buttons with icon blocks, and the
+  Fredoka font (SIL OFL, `Assets/Ludify/Import/Resources/Fonts/`). All icons are drawn in code.
+  - Anything built with `UiKit` restyles automatically, including your HUD, shop, dialogue, job HUD and loading screen.
+  - Light text written for the old dark panels is auto-darkened so it still reads.
+  - IMGUI screens (speedometer, time-trial HUD, car hint) are unchanged.
+- **Subject themes:** Science green (DNA/beakers/flasks), Math blue (operators/numbers), History amber
+  (books/scrolls/columns), Language coral, Geography teal, CS purple, Art pink, Music indigo.
+  Floating symbols appear behind menus.
+- **Esc menu:** Resume · Import files · Organize subjects · Settings · Help.
+  - It opens only when nothing else (map, viewer, dialogue, shop, prompts, loading, race) is using Esc.
+  - It pauses the game.
+- **Organize subjects:**
+  - every import (file, pasted text, pasted image) is kept in a library and auto-filed by subject;
+  - drag items between subject bundles;
+  - "Generate questions" makes one question set from a whole bundle;
+  - "Make current" sets the theme and which questions games use.
+
+**For teammates:** use `UiKit` colours instead of literals to follow the subject theme. See CLAUDE.md "UI theme".
+
+---
+
 ## 2026-09-27 (3): BenJPanackal (Concept vs Traced exhibits)
 
 **Done** (gallery/import only)

@@ -12,13 +12,36 @@ namespace Ludify.Import
     /// </summary>
     public static class UiKit
     {
-        public static readonly Color PanelColor = new Color(0.09f, 0.11f, 0.15f, 0.96f);
-        public static readonly Color ButtonColor = new Color(0.22f, 0.27f, 0.36f, 1f);
-        public static readonly Color AccentColor = new Color(0.25f, 0.55f, 0.95f, 1f);
-        public static readonly Color CorrectColor = new Color(0.2f, 0.65f, 0.3f, 1f);
-        public static readonly Color WrongColor = new Color(0.8f, 0.25f, 0.25f, 1f);
+        // Theme colours (see LudifyTheme): read at build time, and kept live by ThemedGraphic.
+        public static Color PanelColor => LudifyTheme.Palette.Panel;
+        public static Color ButtonColor => LudifyTheme.Palette.Neutral;
+        public static Color AccentColor => LudifyTheme.Palette.Accent;
+        public static Color TextColor => LudifyTheme.Palette.Text;
+        public static Color MutedTextColor => LudifyTheme.Palette.MutedText;
+        public static Color InsetColor => LudifyTheme.Palette.Inset;
+        public static readonly Color CorrectColor = new Color(0.33f, 0.72f, 0.42f, 1f);
+        public static readonly Color WrongColor = new Color(0.9f, 0.36f, 0.32f, 1f);
 
-        static Sprite _circle, _ring, _arrow, _rounded;
+        static Sprite _circle, _ring, _arrow;
+        static TMP_FontAsset _font;
+
+        /// <summary>The UI font: Fredoka SemiBold (SIL OFL), built at runtime from the TTF so it also works in builds.</summary>
+        public static TMP_FontAsset Font
+        {
+            get
+            {
+                if (_font != null) return _font;
+                Font ttf = Resources.Load<Font>("Fonts/Fredoka-SemiBold");
+                if (ttf == null) return null;
+                _font = TMP_FontAsset.CreateFontAsset(ttf, 90, 9, UnityEngine.TextCore.LowLevel.GlyphRenderMode.SDFAA, 1024, 1024,
+                                                      AtlasPopulationMode.Dynamic, true);
+                if (_font == null) return null;
+                _font.name = "Fredoka (runtime)";
+                TMP_FontAsset fallback = TMP_Settings.defaultFontAsset;
+                if (fallback != null) _font.fallbackFontAssetTable = new System.Collections.Generic.List<TMP_FontAsset> { fallback };
+                return _font;
+            }
+        }
 
         public static Canvas CreateCanvas(string name, int sortingOrder)
         {
@@ -59,58 +82,121 @@ namespace Ludify.Import
             return rt;
         }
 
+        /// <summary>
+        /// An image. Panels (RoundedSprite) get the reference's cream look with a rim and a soft drop shadow.
+        /// Anything drawn in a theme colour follows the theme when the subject changes.
+        /// </summary>
         public static Image Image(string name, Transform parent, Color color, Sprite sprite = null, bool raycast = false)
         {
             var image = Rect(name, parent).gameObject.AddComponent<Image>();
             image.color = color;
             image.sprite = sprite;
             image.raycastTarget = raycast;
+            if (sprite != null && sprite == ThemeArt.Panel)
+            {
+                image.type = UnityEngine.UI.Image.Type.Sliced;
+                var shadow = image.gameObject.AddComponent<Shadow>();
+                shadow.effectColor = new Color(0.2f, 0.14f, 0.08f, 0.28f);
+                shadow.effectDistance = new Vector2(0, -6);
+            }
+            ThemeRole? role = RoleOf(color);
+            if (role.HasValue) ThemedGraphic.Attach(image, role.Value);
             return image;
         }
 
+        /// <summary>Which theme colour (if any) a colour is, so it can follow subject changes.</summary>
+        static ThemeRole? RoleOf(Color c)
+        {
+            SubjectPalette p = LudifyTheme.Palette;
+            foreach (ThemeRole role in new[] { ThemeRole.Panel, ThemeRole.Neutral, ThemeRole.Accent, ThemeRole.Inset })
+            {
+                Color r = ThemedGraphic.ColorFor(role, p);
+                if (Mathf.Abs(r.r - c.r) < 0.004f && Mathf.Abs(r.g - c.g) < 0.004f && Mathf.Abs(r.b - c.b) < 0.004f) return role;
+            }
+            return null;
+        }
+
+        /// <summary>Text in the UI font. Without a colour it picks dark or light to contrast with what's behind it.</summary>
         public static TextMeshProUGUI Text(string name, Transform parent, string text, float size,
                                            TextAlignmentOptions align = TextAlignmentOptions.Center, Color? color = null)
         {
             var tmp = Rect(name, parent).gameObject.AddComponent<TextMeshProUGUI>();
+            if (Font != null) tmp.font = Font;
             tmp.text = text;
             tmp.fontSize = size;
             tmp.alignment = align;
-            tmp.color = color ?? Color.white;
+            tmp.color = color ?? TextColor;
             tmp.textWrappingMode = TextWrappingModes.Normal;
             tmp.raycastTarget = false;
+            // Faint decorative text (e.g. subject symbols) keeps its exact colour.
+            if (color == null || color.Value.a >= 0.5f) AutoContrastText.Attach(tmp, color);
             return tmp;
         }
 
-        public static Button Button(string name, Transform parent, string label, float fontSize, UnityAction onClick, Color? color = null)
+        /// <summary>
+        /// The reference's chunky pill button (darker bottom lip). With an <paramref name="icon"/>, a darker
+        /// block on the left holds it, like the reference menu.
+        /// </summary>
+        public static Button Button(string name, Transform parent, string label, float fontSize, UnityAction onClick,
+                                    Color? color = null, Sprite icon = null)
         {
-            Image bg = Image(name, parent, color ?? ButtonColor, RoundedSprite, raycast: true);
+            Image bg = Image(name, parent, color ?? ButtonColor, ThemeArt.Button, raycast: true);
             bg.type = UnityEngine.UI.Image.Type.Sliced;
             var button = bg.gameObject.AddComponent<Button>();
             button.targetGraphic = bg;
             var colors = button.colors;
-            colors.highlightedColor = new Color(1.15f, 1.15f, 1.15f, 1f);
+            colors.highlightedColor = new Color(1.1f, 1.1f, 1.1f, 1f);
             colors.pressedColor = new Color(0.85f, 0.85f, 0.85f, 1f);
-            colors.disabledColor = new Color(0.7f, 0.7f, 0.7f, 0.6f);
+            colors.disabledColor = new Color(0.75f, 0.75f, 0.75f, 0.6f);
+            colors.fadeDuration = 0.08f;
             button.colors = colors;
             if (onClick != null) button.onClick.AddListener(onClick);
+
+            float left = 8;
+            if (icon != null)
+            {
+                Image block = Image("IconBlock", bg.transform, Color.Lerp(bg.color, Color.black, 0.18f), ThemeArt.Button);
+                block.type = UnityEngine.UI.Image.Type.Sliced;
+                RectTransform brt = block.rectTransform;
+                brt.anchorMin = new Vector2(0, 0);
+                brt.anchorMax = new Vector2(0, 1);
+                brt.pivot = new Vector2(0, 0.5f);
+                brt.sizeDelta = new Vector2(0, 0);
+                brt.offsetMin = new Vector2(0, 0);
+                block.gameObject.AddComponent<AspectRatioFitter>().aspectMode = AspectRatioFitter.AspectMode.HeightControlsWidth;
+                Image glyph = Image("Icon", block.transform, Color.white, icon);
+                Stretch(glyph.rectTransform, 0);
+                glyph.rectTransform.anchorMin = new Vector2(0.2f, 0.24f);
+                glyph.rectTransform.anchorMax = new Vector2(0.8f, 0.84f);
+                glyph.preserveAspect = true;
+                left = 0;   // label is inset by the block width below
+                button.gameObject.AddComponent<IconButtonLayout>();
+            }
             if (label != null) // "" still creates a label that can be filled in later
-                Stretch(Text("Label", bg.transform, label, fontSize).rectTransform, 8);
+            {
+                TextMeshProUGUI t = Text("Label", bg.transform, label, fontSize);
+                Stretch(t.rectTransform, 8);
+                t.rectTransform.offsetMin = new Vector2(left + 8, 12);   // leave room for the bottom lip
+                t.fontStyle = FontStyles.Normal;
+                if (icon != null) t.alignment = TextAlignmentOptions.MidlineLeft;
+            }
             return button;
         }
 
         /// <summary>A TMP input field (multi-line if <paramref name="multiline"/>), with placeholder text.</summary>
         public static TMP_InputField InputField(string name, Transform parent, string placeholder, float fontSize, bool multiline)
         {
-            Image bg = Image(name, parent, new Color(0.05f, 0.06f, 0.08f, 1f), RoundedSprite, raycast: true);
+            Image bg = Image(name, parent, InsetColor, ThemeArt.Button, raycast: true);
             bg.type = UnityEngine.UI.Image.Type.Sliced;
             RectTransform viewport = Stretch(Rect("Viewport", bg.transform), 12);
+            viewport.offsetMin = new Vector2(14, 16);
             viewport.gameObject.AddComponent<RectMask2D>();
 
             TextMeshProUGUI hint = Text("Placeholder", viewport, placeholder, fontSize,
-                                        multiline ? TextAlignmentOptions.TopLeft : TextAlignmentOptions.Left, new Color(1, 1, 1, 0.35f));
+                                        multiline ? TextAlignmentOptions.TopLeft : TextAlignmentOptions.Left, MutedTextColor);
             Stretch(hint.rectTransform);
             hint.fontStyle = FontStyles.Italic;
-            TextMeshProUGUI text = Text("Text", viewport, "", fontSize, multiline ? TextAlignmentOptions.TopLeft : TextAlignmentOptions.Left);
+            TextMeshProUGUI text = Text("Text", viewport, "", fontSize, multiline ? TextAlignmentOptions.TopLeft : TextAlignmentOptions.Left, TextColor);
             Stretch(text.rectTransform);
 
             var field = bg.gameObject.AddComponent<TMP_InputField>();
@@ -123,13 +209,24 @@ namespace Ludify.Import
             field.richText = false;
             field.caretWidth = 2;
             field.customCaretColor = true;
-            field.caretColor = Color.white;
-            field.selectionColor = new Color(0.25f, 0.55f, 0.95f, 0.5f);
+            field.caretColor = TextColor;
+            field.selectionColor = new Color(AccentColor.r, AccentColor.g, AccentColor.b, 0.4f);
             return field;
         }
 
         public static void SetButtonLabel(Button button, string label) =>
             button.GetComponentInChildren<TextMeshProUGUI>().text = label;
+
+        /// <summary>A cream "title tab" like the reference's "Menu" header, with optional subject decor.</summary>
+        public static TextMeshProUGUI TitleCard(Transform parent, string title, float fontSize = 40)
+        {
+            Image tab = Image("TitleCard", parent, PanelColor, ThemeArt.Panel);
+            tab.gameObject.AddComponent<LayoutElement>().preferredHeight = fontSize * 1.9f;
+            TextMeshProUGUI t = Text("Title", tab.transform, title, fontSize, TextAlignmentOptions.Center, TextColor);
+            ThemedGraphic.Attach(t, ThemeRole.Text);
+            Stretch(t.rectTransform, 10);
+            return t;
+        }
 
         // ---- Procedural sprites (no texture assets needed) ----
 
@@ -152,28 +249,8 @@ namespace Ludify.Import
             return inTriangle && !notch ? 1f : 0f;
         }));
 
-        /// <summary>Rounded rectangle for 9-sliced buttons and panels.</summary>
-        public static Sprite RoundedSprite
-        {
-            get
-            {
-                if (_rounded != null) return _rounded;
-                const int size = 64, radius = 16;
-                var tex = NewTexture(size);
-                for (int y = 0; y < size; y++)
-                for (int x = 0; x < size; x++)
-                {
-                    float cx = Mathf.Clamp(x + 0.5f, radius, size - radius);
-                    float cy = Mathf.Clamp(y + 0.5f, radius, size - radius);
-                    float d = Vector2.Distance(new Vector2(x + 0.5f, y + 0.5f), new Vector2(cx, cy));
-                    tex.SetPixel(x, y, new Color(1, 1, 1, Coverage(radius - d)));
-                }
-                tex.Apply();
-                _rounded = Sprite.Create(tex, new Rect(0, 0, size, size), new Vector2(0.5f, 0.5f), 100, 0,
-                                         SpriteMeshType.FullRect, new Vector4(radius, radius, radius, radius));
-                return _rounded;
-            }
-        }
+        /// <summary>The reference's cream panel shape (rim + rounded corners), 9-sliced. Tint with the panel colour.</summary>
+        public static Sprite RoundedSprite => ThemeArt.Panel;
 
         /// <summary>
         /// Unity destroys objects made during Play mode when it ends, but with "Enter Play Mode Options"
@@ -184,7 +261,7 @@ namespace Ludify.Import
         internal static T Alive<T>(T obj) where T : UnityEngine.Object => obj != null ? obj : null;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
-        static void ResetCaches() => _circle = _ring = _arrow = _rounded = null;
+        static void ResetCaches() { _circle = _ring = _arrow = null; _font = null; }
 
         static Sprite MakeSprite(int size, Func<float, float, float, float> alpha)
         {

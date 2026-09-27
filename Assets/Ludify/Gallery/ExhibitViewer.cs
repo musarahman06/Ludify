@@ -264,7 +264,7 @@ namespace Ludify.Gallery
             if (_hovered != null)
             {
                 _tooltipText.text = _hovered.Describe(_info.Sim) +
-                    (_underCursor.Count > 1 ? $"\n<size=80%><color=#9fb3c8>Tab: next part here ({_underCursor.Count})</color></size>" : "");
+                    (_underCursor.Count > 1 ? $"\n<size=80%><color=#8a7866>Tab: next part here ({_underCursor.Count})</color></size>" : "");
                 var rt = (RectTransform)_tooltip.transform;
                 var canvas = (RectTransform)rt.parent;
                 RectTransformUtility.ScreenPointToLocalPointInRectangle(canvas, screen.Value, null, out Vector2 local);
@@ -400,10 +400,10 @@ namespace Ludify.Gallery
                 "<b>Hover</b> a part for details (<b>Tab</b> picks parts behind it)  ·  <b>Double-click</b> a part to zoom to it" +
                 (circuit ? "\n<b>Click the switch</b> to turn the circuit on or off" : "");
             string mode = m?.Mode == "concept" ? "Concept model" : "Traced from the image";
-            string identified = string.IsNullOrWhiteSpace(m?.Identified) ? "" : $"\n<size=85%><color=#9fb3c8>Gemini saw: {m.Identified}</color></size>";
+            string identified = string.IsNullOrWhiteSpace(m?.Identified) ? "" : $"\n<size=85%><color=#8a7866>Gemini saw: {m.Identified}</color></size>";
             string facts = m?.Reference != null && !string.IsNullOrWhiteSpace(m.Reference.Extract)
                 ? $"\n\n<b>From Wikipedia · {m.Reference.Title}</b>\n<size=90%>{m.Reference.Extract}</size>" : "";
-            _body.text = $"<i>{m?.Subject}  ·  {mode}</i>{identified}\n{m?.Explanation}{facts}\n\n<size=85%><color=#b8c7d9>{how}</color></size>";
+            _body.text = $"<i>{m?.Subject}  ·  {mode}</i>{identified}\n{m?.Explanation}{facts}\n\n<size=85%><color=#7d6b5a>{how}</color></size>";
             _article.gameObject.SetActive(!string.IsNullOrEmpty(m?.Reference?.Url));
 
             bool missingInfo = m != null && m.IsModel && m.Parts.Any(p => string.IsNullOrWhiteSpace(p.Info));

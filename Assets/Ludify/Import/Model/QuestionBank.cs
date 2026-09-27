@@ -16,6 +16,10 @@ namespace Ludify.Import
         public string Model;
 
         public string Topic;
+        /// <summary>School subject (science, math, …) as detected by Gemini; drives the UI theme.</summary>
+        public string Subject;
+        /// <summary>Set when the bank was generated from a whole subject bundle.</summary>
+        public string BundleId;
         public string Summary;
         public List<string> KeyConcepts = new List<string>();
 

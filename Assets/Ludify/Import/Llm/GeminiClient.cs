@@ -22,6 +22,9 @@ namespace Ludify.Import
         public byte[] ImageBytes;
         public string ImageMimeType = "image/png";
 
+        /// <summary>More attachments (PDFs/images), e.g. every file in a subject bundle.</summary>
+        public List<(byte[] Data, string Mime)> Attachments;
+
         /// <summary>Let the model search Google (grounding). Returns source links.</summary>
         public bool UseGoogleSearch;
 
@@ -91,6 +94,8 @@ namespace Ludify.Import
                 parts.Add(InlineData("application/pdf", r.PdfBytes));
             if (r.ImageBytes != null)
                 parts.Add(InlineData(r.ImageMimeType, r.ImageBytes));
+            if (r.Attachments != null)
+                foreach (var (data, mime) in r.Attachments) parts.Add(InlineData(mime, data));
             parts.Add(new JObject { ["text"] = r.Text });
 
             var body = new JObject

@@ -68,7 +68,7 @@ namespace Ludify.Import
 
             UiKit.Text("Title", panel.transform, _options.Title, 32, TextAlignmentOptions.Center, UiKit.AccentColor).fontStyle = FontStyles.Bold;
             if (!string.IsNullOrEmpty(_options.Subtitle))
-                UiKit.Text("Subtitle", panel.transform, _options.Subtitle, 19, TextAlignmentOptions.Center, new Color(0.75f, 0.8f, 0.88f));
+                UiKit.Text("Subtitle", panel.transform, _options.Subtitle, 19, TextAlignmentOptions.Center, UiKit.MutedTextColor);
 
             if (_options.Choices != null && _options.Choices.Length > 0)
             {
@@ -79,7 +79,7 @@ namespace Ludify.Import
                     _choiceButtons.Add(UiKit.Button("Choice" + i, modeRow, _options.Choices[i], 19, () => Choose(index), UiKit.ButtonColor));
                 }
                 if (!string.IsNullOrEmpty(_options.ChoiceHint))
-                    UiKit.Text("ChoiceHint", panel.transform, _options.ChoiceHint, 16, TextAlignmentOptions.Center, new Color(1, 1, 1, 0.55f));
+                    UiKit.Text("ChoiceHint", panel.transform, _options.ChoiceHint, 16, TextAlignmentOptions.Center, UiKit.MutedTextColor);
                 Choose(_options.ChoiceIndex);
             }
 
@@ -92,18 +92,18 @@ namespace Ludify.Import
                 UiKit.Text("PasteHelp", panel.transform,
                     "Paste works with the Snipping Tool (Win+Shift+S), Mac screenshots (Cmd+Ctrl+Shift+4), " +
                     "or right-click an image in your browser → Copy image. Copied image links work too.",
-                    16, TextAlignmentOptions.Center, new Color(1, 1, 1, 0.55f));
+                    16, TextAlignmentOptions.Center, UiKit.MutedTextColor);
 
             if (_options.AllowText)
             {
-                UiKit.Text("Or", panel.transform, "— or paste the text —", 19, TextAlignmentOptions.Center, new Color(1, 1, 1, 0.7f));
+                UiKit.Text("Or", panel.transform, "— or paste the text —", 19, TextAlignmentOptions.Center, UiKit.MutedTextColor);
                 _text = UiKit.InputField("PasteText", panel.transform, _options.TextPlaceholder, 20, multiline: true);
                 _text.gameObject.AddComponent<LayoutElement>().preferredHeight = 280;
                 _titleField = UiKit.InputField("TitleField", panel.transform, "Title (optional), e.g. \"Week 3: Photosynthesis\"", 20, multiline: false);
                 _titleField.gameObject.AddComponent<LayoutElement>().preferredHeight = 48;
             }
 
-            _status = UiKit.Text("Status", panel.transform, "", 19, TextAlignmentOptions.Center, new Color(1f, 0.75f, 0.5f));
+            _status = UiKit.Text("Status", panel.transform, "", 19, TextAlignmentOptions.Center, UiKit.WrongColor);
             _status.gameObject.SetActive(false);
 
             Transform actions = Row(panel.transform, 54);

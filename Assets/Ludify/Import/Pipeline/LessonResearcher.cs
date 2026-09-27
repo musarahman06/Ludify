@@ -80,6 +80,7 @@ namespace Ludify.Import
                 PdfBytes = lesson.PdfBytes,
                 ImageBytes = lesson.ImageBytes,
                 ImageMimeType = lesson.ImageMimeType,
+                Attachments = lesson.Attachments,
                 UseGoogleSearch = web,
                 Temperature = 0.3f,
             }, ct);
@@ -96,7 +97,13 @@ namespace Ludify.Import
         /// <summary>Appends the lesson text (unless it's a PDF, which is attached separately).</summary>
         public static string Append(string instructions, LessonContent lesson)
         {
-            if (lesson.IsPdf) return instructions + "\n\nThe class material is the attached PDF.";
+            if (lesson.Attachments != null && lesson.Attachments.Count > 0)
+            {
+                string attached = $"\n\nThe class material includes {lesson.Attachments.Count} attached file(s)";
+                if (string.IsNullOrWhiteSpace(lesson.Text)) return instructions + attached + ".";
+                instructions += attached + " plus the text below.";
+            }
+            else if (lesson.IsPdf) return instructions + "\n\nThe class material is the attached PDF.";
             if (lesson.IsImage) return instructions + "\n\nThe class material is the attached image (e.g. a slide or notes).";
 
             string text = lesson.Text;

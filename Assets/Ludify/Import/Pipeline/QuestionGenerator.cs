@@ -12,6 +12,7 @@ namespace Ludify.Import
     public sealed class GeneratedQuestions
     {
         public string Topic;
+        public string Subject;
         public string Summary;
         public List<string> KeyConcepts = new List<string>();
         public List<McQuestion> Questions = new List<McQuestion>();
@@ -41,13 +42,15 @@ namespace Ludify.Import
             "- explanation: one short sentence saying why the answer is correct.\n" +
             "- concept: the short name of the key concept being tested.\n" +
             "- Cover all key concepts. No duplicate or near-duplicate questions.\n" +
-            "Also return: topic (short title), summary (2-3 sentences for students), keyConcepts (short names).\n\n" +
+            "Also return: topic (short title), summary (2-3 sentences for students), keyConcepts (short names), and subject " +
+            "(the school subject: science, math, history, language, geography, computer science, art, music or general).\n\n" +
             "=== RESEARCH NOTES ===\n{1}\n=== END RESEARCH NOTES ===";
 
         static readonly JObject Schema = JObject.Parse(@"{
           'type': 'OBJECT',
           'properties': {
             'topic': { 'type': 'STRING' },
+            'subject': { 'type': 'STRING', 'enum': ['science', 'math', 'history', 'language', 'geography', 'computer science', 'art', 'music', 'general'] },
             'summary': { 'type': 'STRING' },
             'keyConcepts': { 'type': 'ARRAY', 'items': { 'type': 'STRING' } },
             'questions': {
@@ -67,8 +70,8 @@ namespace Ludify.Import
               }
             }
           },
-          'required': ['topic', 'summary', 'keyConcepts', 'questions'],
-          'propertyOrdering': ['topic', 'summary', 'keyConcepts', 'questions']
+          'required': ['topic', 'subject', 'summary', 'keyConcepts', 'questions'],
+          'propertyOrdering': ['topic', 'subject', 'summary', 'keyConcepts', 'questions']
         }");
 
         readonly GeminiClient _client;
@@ -105,6 +108,7 @@ namespace Ludify.Import
                 PdfBytes = lesson.PdfBytes,
                 ImageBytes = lesson.ImageBytes,
                 ImageMimeType = lesson.ImageMimeType,
+                Attachments = lesson.Attachments,
                 ResponseSchema = Schema,
                 Temperature = 0.7f,
             }, ct);

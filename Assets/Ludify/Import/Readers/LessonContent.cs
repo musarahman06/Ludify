@@ -13,10 +13,13 @@ namespace Ludify.Import
         public byte[] ImageBytes;
         public string ImageMimeType;
 
+        /// <summary>Extra attachments (bundle generation: several PDFs/images at once).</summary>
+        public System.Collections.Generic.List<(byte[] Data, string Mime)> Attachments;
+
         public bool IsPdf => PdfBytes != null;
         public bool IsImage => ImageBytes != null;
         /// <summary>True when Gemini reads an attachment instead of extracted text.</summary>
-        public bool IsAttachment => IsPdf || IsImage;
+        public bool IsAttachment => IsPdf || IsImage || (Attachments != null && Attachments.Count > 0);
     }
 
     public interface ILessonReader

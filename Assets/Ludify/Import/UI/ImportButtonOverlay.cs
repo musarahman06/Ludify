@@ -41,9 +41,11 @@ namespace Ludify.Import
             FileButton = "Choose a file…",
             AllowText = true,
             SubmitTextButton = "Generate questions",
-            OnFile = () => LessonFilePicker.Show(path => Run(i => i.ImportAsync(path, Progress(), false, _cts.Token))),
-            OnText = (text, title) => Run(i => i.ImportTextAsync(text, title, Progress(), false, _cts.Token)),
-            OnImage = image => Run(i => i.ImportImageAsync(image.Bytes, image.MimeType, image.SourceName, Progress(), false, _cts.Token)),
+            // Everything imported is also kept in the library, filed under its subject (Esc menu → Organize subjects).
+            OnFile = () => LessonFilePicker.Show(path => Run(i => i.ImportAsync(path, Progress(), false, _cts.Token), () => LibraryStore.AddFile(path))),
+            OnText = (text, title) => Run(i => i.ImportTextAsync(text, title, Progress(), false, _cts.Token), () => LibraryStore.AddText(text, title)),
+            OnImage = image => Run(i => i.ImportImageAsync(image.Bytes, image.MimeType, image.SourceName, Progress(), false, _cts.Token),
+                                   () => LibraryStore.AddImage(image.Bytes, image.Extension, image.SourceName)),
         });
 
         IProgress<string> Progress() => new Progress<string>(s => Show(s, float.PositiveInfinity));
@@ -58,7 +60,9 @@ namespace Ludify.Import
         bool _busy;
         string _message;
         float _messageUntil;
-        GUIStyle _button, _label;
+        UnityEngine.UI.Button _buttonUi;
+        GameObject _messageBox, _root;
+        TMPro.TextMeshProUGUI _messageText;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         static void Install()
@@ -76,13 +80,48 @@ namespace Ludify.Import
             _instance = this;
         }
 
-        void Update() => _testPanelPresent = FindAnyObjectByType<ImportTestPanel>() != null;
+        void Start()
+        {
+            // Themed pill button at the top of the screen, with a message card under it.
+            Canvas canvas = UiKit.CreateCanvas("ImportButtonCanvas", 30);
+            canvas.transform.SetParent(transform, false);
+            _root = canvas.gameObject;
+            _buttonUi = UiKit.Button("ImportLecture", canvas.transform, "Import lecture", 22, ShowChoices, UiKit.AccentColor, ThemeArt.Icon("import"));
+            UiKit.Place((RectTransform)_buttonUi.transform, new Vector2(0.5f, 1f), new Vector2(0, -12), new Vector2(270, 60));
+            UnityEngine.UI.Image box = UiKit.Image("Message", canvas.transform, UiKit.PanelColor, UiKit.RoundedSprite);
+            UiKit.Place(box.rectTransform, new Vector2(0.5f, 1f), new Vector2(0, -82), new Vector2(720, 0));
+            var fit = box.gameObject.AddComponent<UnityEngine.UI.VerticalLayoutGroup>();
+            fit.padding = new RectOffset(22, 22, 14, 16);
+            fit.childControlWidth = fit.childControlHeight = true;
+            box.gameObject.AddComponent<UnityEngine.UI.ContentSizeFitter>().verticalFit = UnityEngine.UI.ContentSizeFitter.FitMode.PreferredSize;
+            _messageText = UiKit.Text("Text", box.transform, "", 20);
+            _messageBox = box.gameObject;
+            _messageBox.SetActive(false);
+        }
+
+        void Update()
+        {
+            _testPanelPresent = FindAnyObjectByType<ImportTestPanel>() != null;
+            if (_root == null) return;
+            // Hidden when switched off, while another import screen is up, or in the developer test scene.
+            bool show = Enabled && !LessonFilePicker.IsOpen && !_testPanelPresent;
+            if (_root.activeSelf != show) _root.SetActive(show);
+            if (!show) return;
+            _buttonUi.interactable = !_busy;
+            UiKit.SetButtonLabel(_buttonUi, _busy ? "Importing…" : "Import lecture");
+            bool message = !string.IsNullOrEmpty(_message) && Time.unscaledTime < _messageUntil;
+            if (_messageBox.activeSelf != message) _messageBox.SetActive(message);
+            if (message && _messageText.text != _message) _messageText.text = _message;
+        }
 
         void OnDestroy() => _cts.Cancel();
 
-        async void Run(Func<LessonImporter, System.Threading.Tasks.Task<QuestionBank>> import)
+        async void Run(Func<LessonImporter, System.Threading.Tasks.Task<QuestionBank>> import, Func<LibraryItem> store = null)
         {
             _busy = true;
+            LibraryItem item = null;
+            try { item = store?.Invoke(); }
+            catch (Exception e) { Debug.LogWarning("[Ludify.Library] Couldn't store the import: " + e.Message); }
             try
             {
                 // Reload config each time so a key added to ludify_secrets.json works without restarting.
@@ -90,6 +129,13 @@ namespace Ludify.Import
                 Show("Reading…", float.PositiveInfinity);
                 QuestionBank bank = await import(_importer);
                 Show($"Ready: {bank.Questions.Count} questions on \"{bank.Topic}\"", MessageSeconds);
+                if (item != null)
+                {
+                    // File it under its subject and make that subject current (theme + which questions games use).
+                    LibraryStore.FileImported(item, bank);
+                    SubjectBundle bundle = LibraryStore.Bundle(item.BundleId ?? "");
+                    if (bundle != null) LibraryStore.SetActive(bundle);
+                }
                 LessonImported?.Invoke(bank);
             }
             catch (OperationCanceledException) { }
@@ -113,37 +159,5 @@ namespace Ludify.Import
             _messageUntil = Time.unscaledTime + seconds;
         }
 
-        void OnGUI()
-        {
-            // The ImportTest scene has its own full panel; the file browser draws its own UI.
-            if (!Enabled || LessonFilePicker.IsOpen || _testPanelPresent) return;
-
-            if (_button == null)
-            {
-                _button = new GUIStyle(GUI.skin.button) { fontSize = 16, fontStyle = FontStyle.Bold };
-                _label = new GUIStyle(GUI.skin.box) { fontSize = 14, wordWrap = true, alignment = TextAnchor.MiddleCenter };
-            }
-
-            float scale = Screen.height / DesignHeight;
-            Matrix4x4 previous = GUI.matrix;
-            GUI.matrix = Matrix4x4.Scale(new Vector3(scale, scale, 1));
-            float width = Screen.width / scale;
-
-            const float buttonWidth = 180, buttonHeight = 34;
-            var buttonRect = new Rect((width - buttonWidth) / 2, 10, buttonWidth, buttonHeight);
-            GUI.enabled = !_busy;
-            if (GUI.Button(buttonRect, _busy ? "Importing…" : "Import lecture", _button))
-                ShowChoices();
-            GUI.enabled = true;
-
-            if (!string.IsNullOrEmpty(_message) && Time.unscaledTime < _messageUntil)
-            {
-                float messageWidth = Mathf.Min(560, width - 20);
-                float height = _label.CalcHeight(new GUIContent(_message), messageWidth) + 12;
-                GUI.Box(new Rect((width - messageWidth) / 2, buttonRect.yMax + 6, messageWidth, height), _message, _label);
-            }
-
-            GUI.matrix = previous;
-        }
     }
 }

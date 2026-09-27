@@ -178,6 +178,16 @@ namespace Ludify.Gallery
 
         // ---- Build modes (Concept / Traced / Compare both) ----
 
+        /// <summary>True while an exhibit is being viewed up close (it uses Esc).</summary>
+        public static bool ViewerOpen
+        {
+            get
+            {
+                GallerySystem g = FindAnyObjectByType<GallerySystem>();
+                return g != null && g._inspect != null && g._inspect.IsActive;
+            }
+        }
+
         public enum BuildMode { Concept, Traced, Compare }
         const string ModePref = "Ludify.Gallery.BuildMode";
         static readonly string[] ModeLabels = { "Concept model", "Traced from image", "Compare both" };

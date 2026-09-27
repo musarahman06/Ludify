@@ -98,10 +98,10 @@ namespace Ludify.Import
         {
             var sb = new StringBuilder();
             sb.Append("<b>").Append(Title).Append("</b>");
-            if (!string.IsNullOrWhiteSpace(Data.Label)) sb.Append("  <size=80%><color=#9fb3c8>").Append(Nice(Data.Kind)).Append("</color></size>");
+            if (!string.IsNullOrWhiteSpace(Data.Label)) sb.Append("  <size=80%><color=#8a7866>").Append(Nice(Data.Kind)).Append("</color></size>");
             if (!string.IsNullOrWhiteSpace(Data.Info)) sb.Append('\n').Append(Data.Info.Trim());
             string live = sim != null ? sim.Readout(Data.Id) : null;
-            if (!string.IsNullOrEmpty(live)) sb.Append("\n<color=#7fe0ff>").Append(live).Append("</color>");
+            if (!string.IsNullOrEmpty(live)) sb.Append("\n<color=#2f7fb8>").Append(live).Append("</color>");
             return sb.ToString();
         }
 

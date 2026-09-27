@@ -16,6 +16,8 @@ namespace Ludify.Import
     {
         public const string EnvVar = "GEMINI_API_KEY";
         public const string SecretsFileName = "ludify_secrets.json";
+        /// <summary>PlayerPrefs key for the "Questions per lecture" setting.</summary>
+        public const string QuestionsPerFilePref = "Ludify.QuestionsPerFile";
 
         /// <summary>
         /// Google's alias for the current Flash-Lite model: the largest free daily quota.
@@ -44,6 +46,7 @@ namespace Ludify.Import
         public static LlmConfig Load()
         {
             var config = new LlmConfig();
+            try { config.QuestionsPerFile = Mathf.Clamp(PlayerPrefs.GetInt(QuestionsPerFilePref, config.QuestionsPerFile), 5, 40); } catch { }
 
             string envModel = Environment.GetEnvironmentVariable("GEMINI_MODEL");
             if (!string.IsNullOrWhiteSpace(envModel)) config.Model = envModel.Trim();

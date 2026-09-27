@@ -71,7 +71,7 @@ namespace Ludify.Import
                 panel.gameObject.AddComponent<ContentSizeFitter>().verticalFit = ContentSizeFitter.FitMode.PreferredSize;
 
                 UiKit.Text("Title", panel.transform, title, 30, TextAlignmentOptions.Center, UiKit.AccentColor).fontStyle = FontStyles.Bold;
-                _meta = UiKit.Text("Meta", panel.transform, "", 18, TextAlignmentOptions.Center, new Color(0.7f, 0.75f, 0.8f));
+                _meta = UiKit.Text("Meta", panel.transform, "", 18, TextAlignmentOptions.Center, UiKit.MutedTextColor);
                 _prompt = UiKit.Text("Question", panel.transform, "", 34);
                 _prompt.fontStyle = FontStyles.Bold;
 

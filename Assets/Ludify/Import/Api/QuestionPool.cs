@@ -32,6 +32,13 @@ namespace Ludify.Import
         {
             _loaded = true;
             List<QuestionBank> banks = QuestionBankStore.LoadAll();
+            SubjectBundle active = LibraryStore.ActiveBundle;
+            if (active != null)
+            {
+                var ids = new HashSet<string>(LibraryStore.BankIdsFor(active));
+                var fromBundle = banks.Where(b => ids.Contains(b.Id)).ToList();
+                if (fromBundle.Any(b => b.Questions != null && b.Questions.Count > 0)) banks = fromBundle;
+            }
             var questions = banks.SelectMany(b => b.Questions ?? new List<McQuestion>()).ToList();
             if (questions.Count == 0)
             {
