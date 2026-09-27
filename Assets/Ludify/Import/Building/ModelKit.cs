@@ -77,12 +77,12 @@ namespace Ludify.Import
         static readonly Dictionary<int, Mesh> Rings = new Dictionary<int, Mesh>();
 
         /// <summary>Square pyramid, base 1×1 at y = −0.5, apex at y = +0.5.</summary>
-        public static Mesh PyramidMesh => _pyramid ?? (_pyramid = Faceted("Pyramid",
+        public static Mesh PyramidMesh => UiKit.Alive(_pyramid) ?? (_pyramid = Faceted("Pyramid",
             new[] { new Vector3(-.5f, -.5f, -.5f), new Vector3(.5f, -.5f, -.5f), new Vector3(.5f, -.5f, .5f), new Vector3(-.5f, -.5f, .5f), new Vector3(0, .5f, 0) },
             new[] { 0, 4, 1, 1, 4, 2, 2, 4, 3, 3, 4, 0, 0, 1, 2, 0, 2, 3 }));
 
         /// <summary>Triangular prism along Z (length 1), triangle base 1 wide, 1 tall.</summary>
-        public static Mesh PrismMesh => _prism ?? (_prism = Faceted("Prism",
+        public static Mesh PrismMesh => UiKit.Alive(_prism) ?? (_prism = Faceted("Prism",
             new[] { new Vector3(-.5f, -.5f, -.5f), new Vector3(.5f, -.5f, -.5f), new Vector3(0, .5f, -.5f),
                     new Vector3(-.5f, -.5f, .5f), new Vector3(.5f, -.5f, .5f), new Vector3(0, .5f, .5f) },
             new[] { 0, 2, 1, 3, 4, 5, 0, 1, 4, 0, 4, 3, 1, 2, 5, 1, 5, 4, 2, 0, 3, 2, 3, 5 }));
@@ -223,6 +223,14 @@ namespace Ludify.Import
             go.transform.localScale = Vector3.one * height;
             go.AddComponent<Billboard>();
             return tmp;
+        }
+
+        /// <summary>Forget cached runtime objects at the start of each Play session (see <see cref="UiKit.Alive{T}"/>).</summary>
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+        static void ResetCaches()
+        {
+            _base = null; _transparentBase = null; _cone = null; _pyramid = null; _prism = null;
+            Materials.Clear(); Transparents.Clear(); Rings.Clear();
         }
 
         /// <summary>Destroy that also works outside Play mode (editor tools, tests).</summary>

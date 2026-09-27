@@ -133,17 +133,17 @@ namespace Ludify.Import
 
         // ---- Procedural sprites (no texture assets needed) ----
 
-        public static Sprite CircleSprite => _circle ?? (_circle = MakeSprite(256, (x, y, r) => Coverage(r - Dist(x, y, r))));
+        public static Sprite CircleSprite => Alive(_circle) ?? (_circle = MakeSprite(256, (x, y, r) => Coverage(r - Dist(x, y, r))));
 
         /// <summary>A ring whose thickness is ~8% of the radius.</summary>
-        public static Sprite RingSprite => _ring ?? (_ring = MakeSprite(256, (x, y, r) =>
+        public static Sprite RingSprite => Alive(_ring) ?? (_ring = MakeSprite(256, (x, y, r) =>
         {
             float d = Dist(x, y, r);
             return Mathf.Min(Coverage(r - d), Coverage(d - r * 0.92f));
         }));
 
         /// <summary>Upward-pointing arrow (north = up), for the player marker.</summary>
-        public static Sprite ArrowSprite => _arrow ?? (_arrow = MakeSprite(128, (x, y, r) =>
+        public static Sprite ArrowSprite => Alive(_arrow) ?? (_arrow = MakeSprite(128, (x, y, r) =>
         {
             float u = x / (2 * r) - 0.5f, v = y / (2 * r);          // u in [-0.5,0.5], v in [0,1] (bottom→top)
             float halfWidth = 0.42f * (1 - v);                      // triangle from wide base to tip
@@ -174,6 +174,17 @@ namespace Ludify.Import
                 return _rounded;
             }
         }
+
+        /// <summary>
+        /// Unity destroys objects made during Play mode when it ends, but with "Enter Play Mode Options"
+        /// (no domain reload) static fields keep pointing at the dead objects. C#'s <c>??</c> doesn't see
+        /// Unity's "destroyed" state, so the next session drew plain squares (e.g. a white minimap).
+        /// Alive() returns null for destroyed objects, so they get rebuilt.
+        /// </summary>
+        internal static T Alive<T>(T obj) where T : UnityEngine.Object => obj != null ? obj : null;
+
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+        static void ResetCaches() => _circle = _ring = _arrow = _rounded = null;
 
         static Sprite MakeSprite(int size, Func<float, float, float, float> alpha)
         {
