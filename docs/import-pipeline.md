@@ -97,6 +97,20 @@ The game is paused via `ModalGuard`.
 - **F** flips it, **X** explodes it, **R** resets the view, **double-click** zooms to a part, **Esc/I** exits.
 - Hovering shows `ExhibitPart.Describe` (name, value, Gemini's per-part `info`, live readings).
 
+**Build modes** (chosen in the add-image panel and remembered per player):
+- **Concept (default):** Gemini identifies the subject (schematic, diagram, sketch or photo) and designs the best
+  teaching model of it from its own knowledge. It fills in missing values and says so, ignores annotations such as
+  current arrows, and turns photos into their underlying concept. It also returns `identified`, `kit` and `wikiTopic`.
+  `WikipediaClient` (free REST API, no key) adds a short summary and a link, shown in the viewer.
+- **Traced:** copies what's drawn (the original approach).
+- **Compare:** builds Concept on the chosen pedestal and Traced on the nearest free one (2 calls).
+
+Each image is still one Gemini call per mode. Cache keys include the mode. Stylised objects (kit `object`, e.g. an
+animal) keep Gemini's exact coordinates, because their pieces overlap on purpose.
+
+**Picking parts inside other parts:** the viewer ranks everything under the cursor by size, smallest first, so a
+nucleus wins over the membrane around it. **Tab** cycles through overlapping parts.
+
 **Kits** (all built from primitives and procedural meshes in `Import/Building/`, one Gemini call per image):
 
 | Image | Built as | Moving parts |

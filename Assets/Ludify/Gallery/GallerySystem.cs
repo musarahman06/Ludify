@@ -144,10 +144,15 @@ namespace Ludify.Gallery
             ImportPanel.Show(new ImportPanel.Options
             {
                 Title = "Add an image to this pedestal",
-                Subtitle = "Circuits, molecules and labeled diagrams become 3D models. Anything else is shown as a framed picture.",
+                Subtitle = "Gemini turns it into an interactive 3D model you can take apart. Choose how:",
                 FileButton = "Choose an image file…",
                 OnFile = () => LessonFilePicker.ShowImages(path => Import(pedestal, path)),
                 OnImage = image => ImportPasted(pedestal, image),
+                Choices = ModeLabels,
+                ChoiceIndex = (int)CurrentMode,
+                ChoiceHint = "Concept: Gemini recognises the subject and builds the best 3D model of it (plus Wikipedia facts). " +
+                             "Traced: copies the drawing. Compare: builds both on neighbouring pedestals (2 AI calls).",
+                OnChoice = i => CurrentMode = (BuildMode)i,
             });
         }
 
@@ -171,20 +176,57 @@ namespace Ludify.Gallery
             finally { if (deleteAfter && File.Exists(path)) File.Delete(path); }
         }
 
+        // ---- Build modes (Concept / Traced / Compare both) ----
+
+        public enum BuildMode { Concept, Traced, Compare }
+        const string ModePref = "Ludify.Gallery.BuildMode";
+        static readonly string[] ModeLabels = { "Concept model", "Traced from image", "Compare both" };
+
+        public static BuildMode CurrentMode
+        {
+            get
+            {
+                try { return (BuildMode)Mathf.Clamp(PlayerPrefs.GetInt(ModePref, 0), 0, 2); }
+                catch { return BuildMode.Concept; }
+            }
+            set { try { PlayerPrefs.SetInt(ModePref, (int)value); PlayerPrefs.Save(); } catch { } }
+        }
+
         async System.Threading.Tasks.Task ImportCore(Pedestal pedestal, string path, string displayName)
+        {
+            BuildMode mode = CurrentMode;
+            if (mode != BuildMode.Compare)
+            {
+                await BuildOn(pedestal, path, displayName, mode == BuildMode.Traced ? ModelMode.Traced : ModelMode.Concept);
+                return;
+            }
+
+            // Compare: concept version here, traced version on the nearest free pedestal, so you can walk between them.
+            Pedestal twin = _layout.Pedestals
+                .Where(p => p != pedestal && p.IsEmpty)
+                .OrderBy(p => (p.transform.position - pedestal.transform.position).sqrMagnitude)
+                .FirstOrDefault();
+            await BuildOn(pedestal, path, displayName, ModelMode.Concept);
+            if (this == null) return;
+            if (twin == null) { Show("No free pedestal nearby for the traced version.", MessageSeconds * 1.5f); return; }
+            await BuildOn(twin, path, displayName, ModelMode.Traced);
+            if (this != null) Show("Concept model is here; the traced version is on the nearest pedestal. Compare them!", MessageSeconds * 1.5f);
+        }
+
+        async System.Threading.Tasks.Task BuildOn(Pedestal pedestal, string path, string displayName, ModelMode mode)
         {
             _busy = pedestal;
             var progress = new Progress<string>(s => { pedestal.SetStatus(s); Show(s); });
             SceneModel model;
             try
             {
-                model = await new ImageModelGenerator().GenerateAsync(path, progress);
+                model = await new ImageModelGenerator().GenerateAsync(path, progress, false, default, mode);
             }
             catch (ImportException e) when (File.Exists(path) && ImageModelGenerator.MimeType(path) != null)
             {
                 // Gemini unavailable (no key, daily limit…): still hang the picture, just without a 3D model.
                 Show(e.Message + " Showing the picture instead.", MessageSeconds * 1.5f);
-                model = new SceneModel { Title = displayName, DisplayMode = "image", Explanation = "" };
+                model = new SceneModel { Title = displayName, DisplayMode = "image", Explanation = "", Mode = mode == ModelMode.Concept ? "concept" : "traced" };
             }
             catch (Exception e)
             {
@@ -230,7 +272,8 @@ namespace Ludify.Gallery
             Show("Asking Gemini for part details…", float.PositiveInfinity);
             try
             {
-                SceneModel model = await new ImageModelGenerator().GenerateAsync(image, null, forceRegenerate: true);
+                ModelMode mode = pedestal.Record.Model?.Mode == "traced" ? ModelMode.Traced : ModelMode.Concept;
+                SceneModel model = await new ImageModelGenerator().GenerateAsync(image, null, true, default, mode);
                 if (this == null || pedestal == null) return;
                 pedestal.Record.Model = model;
                 ExhibitStore.Save(_records);

@@ -118,6 +118,7 @@ namespace Ludify.Map
             MapMarkers.UpdatePositions();
 
             MapSnapshot snapshot = _map.Snapshot;
+            if (snapshot == null) return;   // e.g. right after a script reload in the Editor
             Vector2 uv = snapshot.WorldToUv(focus.position);
             float span = MetersAcross / snapshot.WorldRect.width;
             _image.uvRect = new Rect(uv.x - span / 2, uv.y - span / 2, span, span);

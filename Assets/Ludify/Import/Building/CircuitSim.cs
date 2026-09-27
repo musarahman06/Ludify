@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 
 namespace Ludify.Import
@@ -36,7 +37,26 @@ namespace Ludify.Import
                     if (r.name == "Lever") _levers[part.Data.Id] = r.transform;
                 }
             }
+            OrientLeds();
             Resolve();
+        }
+
+        /// <summary>
+        /// Which lead of an LED is which can't always be read from a picture. Close every switch, and turn
+        /// any LED that stays dark but would light the other way round, then restore the switches.
+        /// </summary>
+        void OrientLeds()
+        {
+            var switches = _pcb.Netlist.Solver.Elements.Where(e => e.Kind == "switch").ToList();
+            var wasOpen = switches.Select(e => e.IsOpen).ToList();
+            foreach (var e in switches) e.IsOpen = false;
+            foreach (var led in _pcb.Netlist.Solver.Elements.Where(e => e.IsLed))
+            {
+                if (!Solver.Solve() || led.LedOn) continue;
+                (led.NodeA, led.NodeB) = (led.NodeB, led.NodeA);
+                if (!Solver.Solve() || !led.LedOn) (led.NodeA, led.NodeB) = (led.NodeB, led.NodeA);
+            }
+            for (int i = 0; i < switches.Count; i++) switches[i].IsOpen = wasOpen[i];
         }
 
         public bool IsSwitch(string partId) =>
@@ -112,7 +132,7 @@ namespace Ludify.Import
                 case "battery": return $"{CircuitSolver.FormatVolts(e.Emf)} battery, supplying {amps}";
                 case "switch": return (e.IsOpen ? "Open, no current can flow" : $"Closed, {amps} flowing") + "  ·  <b>click to toggle</b>";
                 case "bulb": return $"{volts} across  ·  {amps} through  ·  {(e.Power * 1000):0.#} mW";
-                case "led": return e.LedOn ? $"On  ·  {amps} through" : "Off (no current, or connected backwards)";
+                case "led": return e.LedOn && System.Math.Abs(e.Current) > 1e-5 ? $"On  ·  {amps} through" : "Off: no current is flowing through it";
                 case "capacitor": return $"Charged to {volts} (no DC current flows through)";
                 case "meter": return e.Resistance > 1 ? $"Reads {volts}" : $"Reads {amps}";
                 default: return $"{volts} across  ·  {amps} through";

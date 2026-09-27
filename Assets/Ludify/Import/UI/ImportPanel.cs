@@ -26,6 +26,11 @@ namespace Ludify.Import
             public Action<PastedImage> OnImage;
             /// <summary>(text, optional title)</summary>
             public Action<string, string> OnText;
+            /// <summary>Optional one-of-N setting shown as a row of buttons (e.g. how to build the model).</summary>
+            public string[] Choices;
+            public int ChoiceIndex;
+            public string ChoiceHint;
+            public Action<int> OnChoice;
         }
 
         public static bool IsShowing => _current != null;
@@ -65,6 +70,19 @@ namespace Ludify.Import
             if (!string.IsNullOrEmpty(_options.Subtitle))
                 UiKit.Text("Subtitle", panel.transform, _options.Subtitle, 19, TextAlignmentOptions.Center, new Color(0.75f, 0.8f, 0.88f));
 
+            if (_options.Choices != null && _options.Choices.Length > 0)
+            {
+                Transform modeRow = Row(panel.transform, 46);
+                for (int i = 0; i < _options.Choices.Length; i++)
+                {
+                    int index = i;
+                    _choiceButtons.Add(UiKit.Button("Choice" + i, modeRow, _options.Choices[i], 19, () => Choose(index), UiKit.ButtonColor));
+                }
+                if (!string.IsNullOrEmpty(_options.ChoiceHint))
+                    UiKit.Text("ChoiceHint", panel.transform, _options.ChoiceHint, 16, TextAlignmentOptions.Center, new Color(1, 1, 1, 0.55f));
+                Choose(_options.ChoiceIndex);
+            }
+
             Transform choices = Row(panel.transform, 58);
             UiKit.Button("File", choices, _options.FileButton, 22, ChooseFile, UiKit.ButtonColor);
             if (_options.OnImage != null)
@@ -91,6 +109,16 @@ namespace Ludify.Import
             Transform actions = Row(panel.transform, 54);
             if (_options.AllowText) UiKit.Button("Submit", actions, _options.SubmitTextButton, 22, SubmitText, UiKit.CorrectColor);
             UiKit.Button("Cancel", actions, "Cancel", 22, Close);
+        }
+
+        readonly System.Collections.Generic.List<Button> _choiceButtons = new System.Collections.Generic.List<Button>();
+
+        void Choose(int index)
+        {
+            _options.ChoiceIndex = index;
+            for (int i = 0; i < _choiceButtons.Count; i++)
+                ((Image)_choiceButtons[i].targetGraphic).color = i == index ? UiKit.AccentColor : UiKit.ButtonColor;
+            _options.OnChoice?.Invoke(index);
         }
 
         static Transform Row(Transform parent, float height)

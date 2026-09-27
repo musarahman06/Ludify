@@ -22,7 +22,27 @@ namespace Ludify.Import
         public List<ScenePart> Parts = new List<ScenePart>();
         public List<SceneLink> Links = new List<SceneLink>();
 
+        /// <summary>How it was built: "concept" (Gemini's understanding of the subject) or "traced" (copies the drawing).</summary>
+        public string Mode = "traced";
+        /// <summary>What Gemini recognised in the image, e.g. "Photo of a printed circuit board".</summary>
+        public string Identified;
+        /// <summary>Which 3D kit it was built with (circuit, molecule, space, cell, mechanism, chart, geometry, process, object).</summary>
+        public string Kit;
+        /// <summary>Wikipedia article title for background facts (looked up after generation).</summary>
+        public string WikiTopic;
+        /// <summary>Facts from Wikipedia (free, no key), shown in the viewer.</summary>
+        public WebReference Reference;
+
         public bool IsModel => DisplayMode != "image" && Parts != null && Parts.Count > 0;
+    }
+
+    [Serializable]
+    public sealed class WebReference
+    {
+        public string Source = "Wikipedia";
+        public string Title;
+        public string Extract;
+        public string Url;
     }
 
     [Serializable]

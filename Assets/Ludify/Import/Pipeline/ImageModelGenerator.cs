@@ -17,21 +17,35 @@ namespace Ludify.Import
     /// Results are cached by image contents in &lt;persistentDataPath&gt;/ImageModels, so re-using an
     /// image costs no API calls. Call from the main thread.
     /// </summary>
+    public enum ModelMode
+    {
+        /// <summary>Recognise the subject and build the best teaching model of it (Gemini's knowledge + Wikipedia).</summary>
+        Concept,
+        /// <summary>Copy what's drawn in the image as literally as possible.</summary>
+        Traced,
+    }
+
     public sealed class ImageModelGenerator
     {
         /// <summary>Bump when the prompt/schema changes so cached models regenerate.</summary>
-        const string PipelineVersion = "scene-v4";
+        const string PipelineVersion = "scene-v6";
         const int MaxParts = 60, MaxLinks = 120;
         public const long MaxImageBytes = 12 * 1024 * 1024;
 
-        const string SystemPrompt =
+        const string TracedSystem =
             "You turn educational images into 3D exhibits for a learning game, so students can walk around and explore them. " +
             "Be accurate. Only model what is actually in the image.";
 
-        const string Instructions =
-            "Describe this image as a 3D model built from parts and links.\n" +
+        const string ConceptSystem =
+            "You are an expert teacher and 3D exhibit designer. You look at an image, recognise the subject it teaches, and design " +
+            "the best interactive 3D model of that subject for students, using your own knowledge, not just what is drawn.";
+
+        const string Layout =
             "Layout box is 10x10x10, seen by a viewer standing in front: x = left to right, y = up (0 = floor), " +
-            "z = near to far (0 = closest to the viewer). Use the space; keep parts at least 1.5 apart.\n" +
+            "z = near to far (0 = closest to the viewer). Use the space; keep separate parts at least 1.5 apart.\n";
+
+        /// <summary>The 3D kits the game can build, shared by both modes.</summary>
+        const string KitGuide =
             "Part kinds:\n" +
             "- Circuits: battery (value like \"9V\"), resistor (value like \"220Ω\"), bulb, switch, capacitor, led, " +
             "meter (value \"A\" or \"V\"), ground, node (a wire junction). Lay the circuit out flat like the diagram: " +
@@ -54,12 +68,35 @@ namespace Ludify.Import
             "- Other diagrams (water cycle, food chains, anatomy, processes, geography): use box, sphere, cylinder, cone, panel " +
             "(a flat sign; value = short text), arrow and label parts arranged in 3D, with arrow links for flows (animated) " +
             "and line links for relationships. Pick sensible colors (CSS names or #RRGGBB).\n" +
-            "Give parts short labels taken from the image (e.g. \"R1\", \"Nucleus\"). Size is about 1 for a typical part (0.3–4).\n" +
-            "For every part, info = one short sentence for students explaining what that part is or does in this image.\n" +
-            "For switches, set value to \"open\" or \"closed\" as drawn.\n" +
+            "- Stylised objects, animals, organs, buildings and tools (no other kit fits): build a recognisable model from box, sphere, " +
+            "cylinder, cone, pyramid and prism parts that overlap where they join (e.g. a panda: body, head, ears, eye patches, legs), " +
+            "each labelled with its key feature.\n" +
+            "Give parts short labels (e.g. \"R1\", \"Nucleus\"). Size is about 1 for a typical part (0.3–4).\n" +
+            "For every part, info = one short sentence for students explaining what that part is or does.\n" +
+            "For switches, set value to \"open\" or \"closed\".\n";
+
+        const string TracedInstructions =
+            "Describe this image as a 3D model built from parts and links.\n" + Layout + KitGuide +
             "If the image is mainly text, a photo of a real scene, or otherwise not a buildable diagram, set displayMode to \"image\" " +
             "and return no parts.\n" +
-            "Also return: title (short), subject (e.g. Physics), and explanation (2-3 sentences teaching students what it shows).";
+            "Also return: title (short), subject (e.g. Physics), identified (one sentence: what the image shows), kit, " +
+            "wikiTopic (English Wikipedia article title for background facts), and explanation (2-3 sentences teaching students what it shows).";
+
+        const string ConceptInstructions =
+            "1. Identify what this image shows. It may be a black-and-white schematic, a textbook diagram, a sketch or a photo.\n" +
+            "2. Design the best interactive 3D teaching model of that subject. Do not copy the drawing: build a complete, correct, colourful " +
+            "version with every essential part a student should learn, even if the image omits it or only hints at it. Use realistic " +
+            "values; if a value is missing (e.g. an unlabelled resistor), choose a typical one and mention it in the explanation.\n" +
+            "3. Annotations are not physical parts: do not model current arrows, callout lines, captions or axis ticks; explain them instead.\n" +
+            "Circuits must form complete closed loops (every component connected at both ends) so the game can simulate the current.\n" +
+            "4. For a photo of a real thing, model the concept behind it (e.g. a circuit-board photo -> a simple representative circuit " +
+            "using the kinds of components visible; a photo of an animal -> a stylised model of it with its key features).\n" +
+            "Choose the kit that fits best (kit = circuit, molecule, space, cell, mechanism, chart, geometry, process or object) and build it:\n" +
+            Layout + KitGuide +
+            "Use displayMode \"image\" only if the image has no teachable subject at all (e.g. plain text).\n" +
+            "Also return: title (short), subject (e.g. Physics), identified (one sentence: what the image shows), kit, " +
+            "wikiTopic (the English Wikipedia article title most useful for background facts, e.g. \"Light-emitting diode\"), and " +
+            "explanation (2-3 sentences teaching students about the subject, including any values you assumed).";
 
         static readonly JsonSerializerSettings JsonSettings = new JsonSerializerSettings
         {
@@ -73,8 +110,10 @@ namespace Ludify.Import
 
         public static string CacheFolder => Path.Combine(Application.persistentDataPath, "ImageModels");
 
+        /// <param name="mode">Concept (recommended): model the subject using Gemini's knowledge. Traced: copy what's drawn.</param>
         public async Task<SceneModel> GenerateAsync(string imagePath, IProgress<string> progress = null,
-                                                    bool forceRegenerate = false, CancellationToken ct = default)
+                                                    bool forceRegenerate = false, CancellationToken ct = default,
+                                                    ModelMode mode = ModelMode.Concept)
         {
             if (!File.Exists(imagePath)) throw new ImportException($"Image not found: {imagePath}");
             string mime = MimeType(imagePath) ?? throw new ImportException("Use a PNG or JPG image.");
@@ -82,7 +121,7 @@ namespace Ludify.Import
 
             byte[] bytes = await Task.Run(() => File.ReadAllBytes(imagePath), ct);
             if (bytes.Length > MaxImageBytes) throw new ImportException("That image is too large (max 12 MB).");
-            string cachePath = Path.Combine(cacheFolder, Hash(bytes) + ".json");
+            string cachePath = Path.Combine(cacheFolder, Hash(bytes, mode) + ".json");
 
             if (!forceRegenerate && File.Exists(cachePath))
             {
@@ -95,16 +134,16 @@ namespace Ludify.Import
             }
 
             if (!_config.HasKey) throw new ImportException(LlmConfig.SetupHelp);
-            progress?.Report("Gemini is studying the image…");
+            progress?.Report(mode == ModelMode.Concept ? "Gemini is identifying the subject…" : "Gemini is tracing the image…");
             var client = new GeminiClient(_config.ApiKey, _config.Model);
             GeminiResult raw = await client.GenerateAsync(new GeminiRequest
             {
-                SystemInstruction = SystemPrompt,
-                Text = Instructions,
+                SystemInstruction = mode == ModelMode.Concept ? ConceptSystem : TracedSystem,
+                Text = mode == ModelMode.Concept ? ConceptInstructions : TracedInstructions,
                 ImageBytes = bytes,
                 ImageMimeType = mime,
                 ResponseSchema = Schema,
-                Temperature = 0.3f,
+                Temperature = mode == ModelMode.Concept ? 0.5f : 0.3f,
             }, ct);
 
             SceneModel model;
@@ -113,6 +152,17 @@ namespace Ludify.Import
             if (model == null) throw new ImportException("Gemini returned nothing for this image. Please try again.");
 
             Validate(model);
+            model.Mode = mode == ModelMode.Concept ? "concept" : "traced";
+
+            // Background facts from the web (Wikipedia is free and needs no key; failures are fine).
+            if (!string.IsNullOrWhiteSpace(model.WikiTopic))
+            {
+                progress?.Report("Looking up background facts…");
+                try { model.Reference = await WikipediaClient.SummaryAsync(model.WikiTopic, ct); }
+                catch (OperationCanceledException) { throw; }
+                catch (Exception e) { Debug.LogWarning("[Ludify.Import] Wikipedia lookup failed: " + e.Message); }
+            }
+
             Directory.CreateDirectory(cacheFolder);
             File.WriteAllText(cachePath, JsonConvert.SerializeObject(model, JsonSettings));
             progress?.Report(model.IsModel ? $"Built \"{model.Title}\" ({model.Parts.Count} parts)." : $"\"{model.Title}\" will be shown as a picture.");
@@ -156,11 +206,11 @@ namespace Ludify.Import
             if (m.Parts.Count == 0) m.DisplayMode = "image";
         }
 
-        static string Hash(byte[] bytes)
+        static string Hash(byte[] bytes, ModelMode mode)
         {
             using (var sha = SHA256.Create())
             {
-                byte[] h = sha.ComputeHash(bytes.Concat(System.Text.Encoding.UTF8.GetBytes(PipelineVersion)).ToArray());
+                byte[] h = sha.ComputeHash(bytes.Concat(System.Text.Encoding.UTF8.GetBytes(PipelineVersion + mode)).ToArray());
                 return BitConverter.ToString(h, 0, 12).Replace("-", "").ToLowerInvariant();
             }
         }
@@ -203,12 +253,14 @@ namespace Ludify.Import
                 ["properties"] = new JObject
                 {
                     ["title"] = str.DeepClone(), ["subject"] = str.DeepClone(), ["explanation"] = str.DeepClone(),
+                    ["identified"] = str.DeepClone(), ["wikiTopic"] = str.DeepClone(),
+                    ["kit"] = new JObject { ["type"] = "STRING", ["enum"] = new JArray("circuit", "molecule", "space", "cell", "mechanism", "chart", "geometry", "process", "object") },
                     ["displayMode"] = new JObject { ["type"] = "STRING", ["enum"] = new JArray("model", "image") },
                     ["parts"] = new JObject { ["type"] = "ARRAY", ["items"] = part },
                     ["links"] = new JObject { ["type"] = "ARRAY", ["items"] = link },
                 },
-                ["required"] = new JArray("title", "subject", "explanation", "displayMode", "parts", "links"),
-                ["propertyOrdering"] = new JArray("title", "subject", "explanation", "displayMode", "parts", "links"),
+                ["required"] = new JArray("title", "subject", "identified", "kit", "wikiTopic", "explanation", "displayMode", "parts", "links"),
+                ["propertyOrdering"] = new JArray("identified", "kit", "title", "subject", "wikiTopic", "explanation", "displayMode", "parts", "links"),
             };
         }
     }

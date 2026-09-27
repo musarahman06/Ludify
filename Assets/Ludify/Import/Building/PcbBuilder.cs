@@ -112,6 +112,18 @@ namespace Ludify.Import
             PartLibrary.BuiltPart part = PartLibrary.Build(p, content, floatingLabel: false);
             float size = part.Root.localScale.x;
             part.Root.localPosition = new Vector3(p.X, MountHeight(p.Kind) * size, p.Z);
+            if (p.Kind == "box")
+            {
+                // Generic parts on a circuit board are drawn as a chip: black body with silver pins down two sides.
+                foreach (Transform child in part.Root.Cast<Transform>().ToList())
+                    if (child.GetComponent<TMP_Text>() == null) Kill(child.gameObject);
+                part.Root.localPosition = new Vector3(p.X, 0.14f * size, p.Z);
+                Prim(PrimitiveType.Cube, part.Root, Vector3.zero, new Vector3(0.9f, 0.22f, 0.55f), new Color(0.08f, 0.08f, 0.09f), name: "Chip");
+                Prim(PrimitiveType.Cylinder, part.Root, new Vector3(-0.32f, 0.115f, 0.15f), new Vector3(0.08f, 0.005f, 0.08f), new Color(0.3f, 0.3f, 0.32f));  // pin-1 notch
+                for (int i = 0; i < 4; i++)
+                    foreach (float side in new[] { -1f, 1f })
+                        Prim(PrimitiveType.Cube, part.Root, new Vector3(-0.33f + i * 0.22f, -0.08f, side * 0.33f), new Vector3(0.07f, 0.18f, 0.08f), Lead);
+            }
             if (p.Kind == "battery")
             {
                 // Black plastic holder with metal end clips around the cell.

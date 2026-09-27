@@ -24,6 +24,8 @@ namespace Ludify.Import
 
             bool isMolecule = parts.All(p => p.Kind == "atom");
             if (isMolecule) return;
+            // Stylised objects (animals, organs, tools): parts overlap on purpose where they join; keep them as designed.
+            if (model.Kit == "object") return;
 
             // Geometry with measurements: the coordinates *are* the shape, so keep them exactly.
             if ((model.Links ?? new List<SceneLink>()).Any(l => l.Kind == "dimension")) return;

@@ -33,7 +33,7 @@ namespace Ludify.Gallery
         Camera _camera, _mainCamera;
         GameObject _panel, _tooltip;
         TextMeshProUGUI _title, _body, _tooltipText;
-        Button _refresh, _explodeButton;
+        Button _refresh, _explodeButton, _article;
         ExhibitPart _hovered;
         Vector2 _pressPos;
         float _pressTime, _lastClickTime;
@@ -227,18 +227,32 @@ namespace Ludify.Gallery
             UpdateHover(overUi ? (Vector2?)null : pos);
         }
 
+        // Parts under the cursor, innermost (smallest) first: a nucleus wins over the cell membrane around it.
+        readonly System.Collections.Generic.List<ExhibitPart> _underCursor = new System.Collections.Generic.List<ExhibitPart>();
+        int _cycle;
+        Vector2 _lastHoverPos;
+
         void UpdateHover(Vector2? screen)
         {
             ExhibitPart hit = null;
             if (screen.HasValue && _info != null)
             {
                 Ray ray = _camera.ScreenPointToRay(screen.Value);
-                float best = float.MaxValue;
+                var parts = new System.Collections.Generic.List<(ExhibitPart part, float volume)>();
                 foreach (RaycastHit h in Physics.RaycastAll(ray, _distance * 4f, ~0, QueryTriggerInteraction.Collide))
                 {
                     ExhibitPart part = h.collider.GetComponent<ExhibitPart>();
-                    if (part != null && _info.Parts.Contains(part) && h.distance < best) { best = h.distance; hit = part; }
+                    if (part == null || !_info.Parts.Contains(part) || parts.Any(x => x.part == part)) continue;
+                    Vector3 size = h.collider.bounds.size;
+                    parts.Add((part, size.x * size.y * size.z));
                 }
+                var ordered = parts.OrderBy(x => x.volume).Select(x => x.part).ToList();
+                if ((screen.Value - _lastHoverPos).sqrMagnitude > 16f || !ordered.SequenceEqual(_underCursor)) _cycle = 0;
+                _lastHoverPos = screen.Value;
+                _underCursor.Clear();
+                _underCursor.AddRange(ordered);
+                if (Keyboard.current != null && Keyboard.current.tabKey.wasPressedThisFrame && _underCursor.Count > 1) _cycle++;
+                if (_underCursor.Count > 0) hit = _underCursor[_cycle % _underCursor.Count];
             }
             if (hit != _hovered)
             {
@@ -249,7 +263,8 @@ namespace Ludify.Gallery
             _tooltip.SetActive(_hovered != null);
             if (_hovered != null)
             {
-                _tooltipText.text = _hovered.Describe(_info.Sim);
+                _tooltipText.text = _hovered.Describe(_info.Sim) +
+                    (_underCursor.Count > 1 ? $"\n<size=80%><color=#9fb3c8>Tab: next part here ({_underCursor.Count})</color></size>" : "");
                 var rt = (RectTransform)_tooltip.transform;
                 var canvas = (RectTransform)rt.parent;
                 RectTransformUtility.ScreenPointToLocalPointInRectangle(canvas, screen.Value, null, out Vector2 local);
@@ -339,6 +354,11 @@ namespace Ludify.Gallery
             UiKit.Button("Reset", row1, "Reset  (R)", 17, ResetView, UiKit.ButtonColor);
 
             Transform row2 = Row(panel.transform);
+            _article = UiKit.Button("Article", row1, "Read more", 17, () =>
+            {
+                string url = _pedestal?.Record?.Model?.Reference?.Url;
+                if (!string.IsNullOrEmpty(url)) Application.OpenURL(url);
+            }, UiKit.ButtonColor);
             _refresh = UiKit.Button("Refresh", row2, "Add details", 17, () => { Pedestal p = _pedestal; _gallery.RefreshDetails(p); }, UiKit.AccentColor);
             UiKit.Button("Replace", row2, "Replace", 17, () => { Pedestal p = _pedestal; End(); _gallery.AddImage(p); }, UiKit.ButtonColor);
             UiKit.Button("Remove", row2, "Remove", 17, () => { Pedestal p = _pedestal; End(); _gallery.Remove(p); }, UiKit.WrongColor);
@@ -377,9 +397,14 @@ namespace Ludify.Gallery
             bool circuit = _info != null && _info.IsCircuit;
             string how =
                 "<b>Drag</b> to turn it any way  ·  <b>Scroll</b> to zoom  ·  <b>Right-drag</b> to move\n" +
-                "<b>Hover</b> a part for details  ·  <b>Double-click</b> a part to zoom to it" +
+                "<b>Hover</b> a part for details (<b>Tab</b> picks parts behind it)  ·  <b>Double-click</b> a part to zoom to it" +
                 (circuit ? "\n<b>Click the switch</b> to turn the circuit on or off" : "");
-            _body.text = $"<i>{m?.Subject}</i>\n{m?.Explanation}\n\n<size=85%><color=#b8c7d9>{how}</color></size>";
+            string mode = m?.Mode == "concept" ? "Concept model" : "Traced from the image";
+            string identified = string.IsNullOrWhiteSpace(m?.Identified) ? "" : $"\n<size=85%><color=#9fb3c8>Gemini saw: {m.Identified}</color></size>";
+            string facts = m?.Reference != null && !string.IsNullOrWhiteSpace(m.Reference.Extract)
+                ? $"\n\n<b>From Wikipedia · {m.Reference.Title}</b>\n<size=90%>{m.Reference.Extract}</size>" : "";
+            _body.text = $"<i>{m?.Subject}  ·  {mode}</i>{identified}\n{m?.Explanation}{facts}\n\n<size=85%><color=#b8c7d9>{how}</color></size>";
+            _article.gameObject.SetActive(!string.IsNullOrEmpty(m?.Reference?.Url));
 
             bool missingInfo = m != null && m.IsModel && m.Parts.Any(p => string.IsNullOrWhiteSpace(p.Info));
             _refresh.gameObject.SetActive(missingInfo && _pedestal.Record?.ImageFile != null);

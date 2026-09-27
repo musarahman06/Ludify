@@ -58,6 +58,7 @@ namespace Ludify.Import
                     string kind = (link.Kind ?? "").ToLowerInvariant();
                     if (kind == "orbit") orbits.Add((a, b));
                     else if (kind == "mesh") meshes.Add(link);
+                    else if (model.Kit == "object" && kind == "line") continue;   // pieces of one object already touch
                     else LinkBuilder.Build(link, a, b, content);
                 }
 

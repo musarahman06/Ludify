@@ -5,6 +5,21 @@ Keep each entry short: what changed, what's half-done, what's next, anything tha
 
 ---
 
+## 2026-09-27 (3): BenJPanackal (Concept vs Traced exhibits)
+
+**Done** (gallery/import only)
+- **The add-image panel has three build modes:**
+  - **Concept (default):** Gemini recognises what the image is about and builds the best 3D teaching model of it.
+    A black-and-white schematic becomes a coloured, working circuit board; a PCB photo becomes a representative
+    circuit; an animal photo becomes a stylised model.
+  - **Traced:** copies the drawing.
+  - **Compare:** builds both on neighbouring pedestals.
+- **Wikipedia facts** (free, no key) appear in the viewer, with a "Read more" link.
+- **Clicking inside things:** hovering picks the innermost part (a nucleus inside a cell membrane), and Tab cycles overlapping parts.
+- **Circuit fixes:** LEDs orient themselves so they light up; unlabelled chips are drawn as chips; concept circuits are always closed loops.
+
+---
+
 ## 2026-09-27 (2): BenJPanackal (hands-on 3D exhibits)
 
 **Done** (gallery only; no teammate files or scenes touched)

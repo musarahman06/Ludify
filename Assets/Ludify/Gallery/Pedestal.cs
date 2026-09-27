@@ -143,7 +143,8 @@ namespace Ludify.Gallery
             }
 
             _hologram.gameObject.SetActive(false);
-            _plaqueText.text = $"<b>{Escape(model?.Title ?? "Image")}</b>\n<size=65%><i>{Escape(model?.Subject)}</i></size>\n<size=75%>{Escape(model?.Explanation)}</size>";
+            string how = model == null || !model.IsModel ? "Picture" : model.Mode == "concept" ? "Concept model" : "Traced from image";
+            _plaqueText.text = $"<b>{Escape(model?.Title ?? "Image")}</b>\n<size=65%><i>{Escape(model?.Subject)}  ·  {how}</i></size>\n<size=75%>{Escape(model?.Explanation)}</size>";
 
             _thumbnail.gameObject.SetActive(image != null);
             if (image != null)
