@@ -58,6 +58,8 @@ namespace Ludify.Import
             _highlighted = on;
             if (on)
             {
+                // Skip pieces that were destroyed since the part was built (keeps _original aligned for restoring).
+                _renderers = _renderers.Where(r => r != null).ToArray();
                 _original = _renderers.Select(r => r.sharedMaterials).ToArray();
                 foreach (Renderer r in _renderers)
                 {
